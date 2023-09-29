@@ -62,7 +62,10 @@ ________________________________________________________________________________
 Please update the correspondent below, when the past user is no longer responsible for the repo.
 __________________________________________________________________________________________________________
 
-As of 8/6/2020, please refer any questions to John Stout at the following email: john.j.stout.jr@gmail.com
+As of 9/29/23, please refer any questions to: 
+Hailey Rosenblum: haileylr@udel.edu
+OR
+John Stout: john.j.stout.jr@gmail.com
 
 
 
