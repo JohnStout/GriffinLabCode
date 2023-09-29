@@ -1,5 +1,7 @@
 # Griffin Lab Code
 
+NOTE** this is the updated location for GriffinLabCode. Previous location was: github.com/GriffinLabCode/GriffinCode.
+
 Welcome to the Griffin lab online library for custom written scripts and functions used to
 analyze our data! :) This page was created to store our 'master' code for easy access to both 
 our members and individuals outside of the lab.
