@@ -436,7 +436,10 @@ for triali = 1:totalTrials
             next = 0;
         end
     end
-    
+ 
+    % EMPTY the cache in cheetah
+    [succeeded,  timeStampArray, locationArray, ...
+        extractedAngleArray, numRecordsReturned, numRecordsDropped ] = NlxGetNewVTData('VT1');
     pause(0.50);
     
     % track position data to detect when they enter the startbox polygon
