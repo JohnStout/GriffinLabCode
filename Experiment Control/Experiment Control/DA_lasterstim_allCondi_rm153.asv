@@ -34,6 +34,7 @@ XV_sb = [SB_fld(1)+SB_fld(3) SB_fld(1) SB_fld(1) SB_fld(1)+SB_fld(3) SB_fld(1)+S
 YV_sb = [SB_fld(2) SB_fld(2) SB_fld(2)+SB_fld(4) SB_fld(2)+SB_fld(4) SB_fld(2)];
 
 %% TEST ME
+
 tester_var = [];
 for i = 1:10
     % pause for "i" seconds
@@ -49,8 +50,10 @@ for i = 1:10
     % save data
     tester_var(i) = length(X)/30;
 end
-figure; plot(1:10,tester_var); xlabel('time waited (sec)'); ylabel('length of data (in sec)')
+figure; plot(1:10,tester_var); xlabel('time waited (sec)'); ylabel('length of data')
+
 title('does waiting x-seconds change y?')
+
 
 %% set up for trial types
 numTrials = 40;
