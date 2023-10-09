@@ -15,9 +15,14 @@ function [myPath] = getCurrentPath()
 % get current path + function name
 getPath = matlab.desktop.editor.getActiveFilename;
 
+if isunix
+    slash = '/'; % Code to run on Linux or MacOS platform
+elseif ispc
+    slash = '\'; % Code to run on Windows platform
+end
 % remove function name
-splitPath = split(getPath,'/');
+splitPath = split(getPath,slash);
 splitPath(end)=[];
 
 % join for path
-myPath = cell2mat(join(splitPath,'/'));
+myPath = cell2mat(join(splitPath,slash));
