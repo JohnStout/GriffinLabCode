@@ -1,8 +1,21 @@
-%% Generate Figures for Stout, George, Kim, Hallock, and Griffin paper
+%% Stout et al., 2023 - eLife - Using synchronized brain rhythms to bias memory-guided decisions
 % this code is meant for reproduction purposes and requires all functions
 % in the folder along with this code
 %
 % behavioral analyses checked on 3/5/2023 for the final time.
+%
+% Added analyses after review
+%
+% You must download the MATLAB pipeline from
+% github.com/JohnStout/GriffinCode and run Startup before some code below
+% works.
+%
+% I highly recommend not hitting the Run button. This code doesn't entirely
+% support that procedure yet. Likewise, please see lines 35 and on. You
+% will be required to change some inputs. Otherwise, you can hack it so
+% that MATLAB sees the data and code directories.
+%
+% Please contact john.j.stout.jr@gmail.com if you have any questions
 
 disp('This code was generated for reproduction purposes and for sharing data/results')
 disp('Additional data (raw formats) can be accessed through communication with Amy Griffin')
@@ -19,29 +32,30 @@ if contains(helpAns,'y')
     disp('4) When finished, find where the code was stored (prob on your C drive')
     disp('5) Open up MATLAB pipeline, find "startup"')
     disp('6) Run startup and follow prompt. You must enter the directory housing startup')
+    disp('7) You might consider saving this code in a separate folder from your data - see lines below (35:)')
     disp('Youre ready to go if you see a list of addpaths in your command window')
     disp('Have fun!')
 end
 
-%% prep work
-clear; clc;
-sourceRoot = 'C:\Users\uggriffin\Documents\BACKUP - Stout 2023 - dissertation';
-sourceFolder = '\Stout et al 2022 Harnessing neural synchrony';
-sourceData = '\data';
-sourceCode = '\code';
-sourceRawCode = '\code for raw analysis';
+%% directory assignment
 
+% if you catch an error here, please contact me.
+
+% create a directory:
+sourceData = input("Enter the directory with your data: ",'s');
+sourceCode = getCurrentPath; % if you get an error here, you must download the pipeline
+place2store = sourceData; % output path
 disp('If running section-by-section, hit ctrl+c. Otherwise, press any key to continue...')
 pause();
 
 %% Initial loading
-cd(horzcat(sourceRoot,sourceFolder,sourceData));
+cd(sourceData)
 load('data_ratNames')
 load('data_realTimeLFPsignals'); % generated from SCRIPT_power_realTimeData_FINAL or SCRIPT_grangerPrediction_realTimeData_4pub
 disp('These data are the signals used to trigger trials in real time')
 %clearvars -except sourceRoot sourceFolder sourceData sourceCode sourceRawCode
 
-%% Coherogram
+%% Fig 2 coherogram
 % coherogram
 load('data_coherogram');
 disp('Generating coherogram')
@@ -77,7 +91,7 @@ figure('color','w');
 disp('Press any key to continue...')
 pause;
 
-%% Coherence triggered trials on behavior
+%% Fig 2D and extended behavior
 load('data_lfp_bmi_filtered_3');
 disp('Plotting behavioral data from trials triggered during coherence states')
 
@@ -140,7 +154,90 @@ readStats(ratHighY,ratNorm,parametric,stat_test,'Yoked High v rand - not planned
 readStats(ratLow,ratNorm,parametric,stat_test,'Low v rand - not planned',numCorrections);
 readStats(ratLowY,ratNorm,parametric,stat_test,'Yoked Low v rand - not planned',numCorrections);
 
-%% BMI on CD
+% delay
+for i = 1:length(lowTime)
+    for ii =1:length(lowTime{i})
+        lowTime{i}{ii}    = change_row_to_column(lowTime{i}{ii});
+        highTime{i}{ii}   = change_row_to_column(highTime{i}{ii});
+        lowYTime{i}{ii}   = change_row_to_column(lowYTime{i}{ii});
+        highYTime{i}{ii}  = change_row_to_column(highYTime{i}{ii});
+        NormTime{i}{ii}   = change_row_to_column(NormTime{i}{ii});
+    end
+end
+timeLow = []; timeHigh = []; timeHighY = []; timeLowY = []; timeNorm =[];
+for i = 1:length(lowTime)
+    timeLow{i}   = vertcat(lowTime{i}{:});
+    timeHigh{i}  = vertcat(highTime{i}{:});
+    timeHighY{i} = vertcat(highYTime{i}{:});
+    timeLowY{i}  = vertcat(lowYTime{i}{:});
+    timeNorm{i}  = vertcat(NormTime{i}{:});
+end
+timeLow   = cellfun(@nanmean,timeLow);
+timeHigh  = cellfun(@nanmean,timeHigh);
+timeLowY  = cellfun(@nanmean,timeLowY);
+timeHighY = cellfun(@nanmean,timeHighY);
+timeNorm  = cellfun(@nanmean,timeNorm);
+
+xlabels = [];
+data2plot{1} = timeHigh; data2plot{2} = timeLow;
+xlabels{1} = 'High'; xlabels{2} = 'Low';
+multiBarPlot(data2plot,xlabels,'Time 2 threshold (sec)','n')
+ylim([8 14]);
+stat_test = 'ttest'; parametric = 'y'; numCorrections = 2;
+readStats(timeHigh,timeLow,parametric,stat_test,'Time In Delay (high v low)',numCorrections);
+
+% -- reviewer suggestion -- %
+
+% reviewer suggested follow-up analysis on random delay trials that also
+% had high coherence states.
+% I found these trials, filtered for trials with good signals, then
+% identified 'control' random trials that had choice outcomes following a
+% similar delay range as the random delays with high coherence
+load('data_reviewer_randomHighCoh','rand_high_clean','rand_del_clean',...
+    'rand_accuracy_new','rand_delay_new')
+
+% consistent with study, require at least 8 trials
+avg_high = 1-cellfun(@nanmean,rand_high_clean);
+avg_del_high = cellfun(@nanmean,rand_del_clean);
+avg_rest = 1-cellfun(@nanmean,rand_accuracy_new);
+avg_del_rest = cellfun(@nanmean,rand_delay_new);
+
+figure('color','w');
+subplot(211)
+    bar((avg_high-avg_rest)*100); box off;
+    ylabel('Percent Change (Random High - Random Rest)')
+    xlabel('Rat')
+subplot(212)
+    bar(avg_del_high-avg_del_rest); box off;
+    ylabel('Percent Change (Random High Delay - Random Rest Delay)')
+    xlabel('Rat')
+
+data = []; data{1} = avg_high; data{2} = avg_rest;
+%jitterc = [{'k'} {'r'} {'b'} {'m'} {'y'} {'c'} {'g'} {[.6 .6 .6]}]
+multiBarPlot(data,[{'Random High'} {'Delay Matched'}],'Choice Accuracy','n',[])
+ylim([0.5 1])
+[h,p,ci,stat]=ttest(data{1},data{2})
+
+data = []; data{1} = avg_del_high; data{2} = avg_del_rest;
+multiBarPlot(data,[{'Random High'} {'Delay Matched'}],'Delay Length')
+[h,p,ci,stat]=ttest(data{1},data{2});
+
+% compare against DA BMI
+data = []; data{1} = timeHigh; data{2} = avg_del_high;
+multiBarPlot(data,[{'BMI High'} {'Random High'}],'Delay Length')
+[h,p,ci,stat]=ttest(data{1},data{2})
+
+data = []; data{1} = ratHigh; data{2} = avg_high.*100;
+multiBarPlot(data,[{'BMI High'} {'Random High'}],'Performance')
+[h,p,ci,stat]=ttest(data{1},data{2})
+ylim([50 100])
+
+% do random delay trials falling in the difference range show behavioral
+% differences?
+range_bmi_high = [mean(timeHigh)+std(timeHigh) mean(timeHigh)-std(timeHigh)];
+range_rand_high = [mean(avg_del_high)+std(avg_del_high) mean(avg_del_high)-std(avg_del_high)];
+
+%% FIG 4 - CD
 load('data_CD_BMI');
 disp('These data were copy and pasted from the Excel sheet titled "CD_BMI"');
 
@@ -160,7 +257,7 @@ numCorrections = 2; parametric = 'y'; stat_test = 'ttest';
 readStats(mat(:,1),mat(:,3),parametric,stat_test,'CD High v Rand - unplanned',numCorrections);
 readStats(mat(:,2),mat(:,3),parametric,stat_test,'CD Yoked v Rand - unplanned',numCorrections);
 
-%% -- POWER -- %
+%% -- Figs 3B-C POWER -- %
 clear;
 disp('Running power spectrum analysis')
 load('data_lfp_bmi_filtered_3');  
@@ -273,7 +370,7 @@ stat_test = 'ttest'; parametric = 'y'; numCorrections = 2;
 readStats(pfcHigh_avg,pfcLow_avg,parametric,stat_test,'PFC Peak Theta High V Low',numCorrections);
 readStats(hpcHigh_avg,hpcLow_avg,parametric,stat_test,'HPC Peak Theta V Low',numCorrections);
 
-%% granger
+%% Fig 3D - Granger
 if exist('lfp_high')==0
     load('data_lfp_bmi_filtered_3');  
 end
@@ -391,7 +488,7 @@ mat = horzcat(diffH2Ptheta,diffP2Htheta);
 multiBarPlot(mat,[{'HPC -> PFC'} {'PFC -> HPC'}],'Norm. Diff (High - Low)')
 ylim([-0.1 0.6])
 
-%% LFP around choice
+%% Fig 3F - LFP around Choice on BMI DA task
 clear;
 load('data_time2choiceEntry');
 
@@ -563,7 +660,7 @@ diffHvL = (tempH-tempL)./(tempH+tempL);
     timeTrim = timeTrim'; tstat = tstat'; p = p'; padj = padj';
     tableData = []; tableData = table(timeTrim,tstat,p,padj);
     
-%% Behavioral analyses
+%% Extended Fig 4 stuff
 % note that some of the analyses use different data. This is because
 % procedures varied slightly between approaches. Importantly, even when I
 % include all LFP data, I see a more significant effect (likely due to
@@ -662,7 +759,7 @@ box off
 ylabel('Choice Accuracy')
 xlabel('Delay Duration Bin - check looper variable')
 
-%% extended figs
+%% More extended figs
 disp('Generating rat x coherence plots...')
 load('data_ratNames')
 
@@ -955,11 +1052,10 @@ end
 %% Analysis of existing datasets
 % raw processing can be observed in SCRIPT_analysis_v4
 clearvars -except dataSpkLFP sourceRoot sourceFolder sourceData sourceCode sourceRawCode
-cd(horzcat(sourceRoot,sourceFolder,sourceData));
+cd(sourceData);
 disp('These analyses were performed on existing datasets from the lab')
 disp('The general focus is on PFC-Re-HPC interaction and PFC SFC')
 disp('loading data - be prepared for a potentially long wait')
-load('data_spkLFP_cohData_v2','dataSpkLFP');
 disp('In dataSpkLFP.processed.epoch variable, HPC = sig1, PFC = sig2, RE = sig3. PFC and HPC are switched in the processed.spksLFPs!')
 disp('In dataSpkLFP.processed.spksLFPs variable, HPC = sig2, PFC = sig1, RE = sig3.')
 disp('Rats 1-3 were sampled at 2034-2035 samples/sec, and rats 4-7 at 2000 samples/sec ')
@@ -1069,7 +1165,75 @@ ylabel('# sessions')
 xlabel('Rat ID')
 %}
 
-%% loading stout + hallock data
+%% loading stout+hallock data and creating a variable
+disp('Please note that the following procedure will load ~5-6GB onto RAM. ')
+disp('We recommend at least 16GB RAM to proceed. You will need this variable to reproduce key figures below')
+disp('Press any key to continue');
+pause();
+clear dataSpkLFP
+cd(sourceData);
+create_dataSpkLFP = 1; % set to 0 if you have already created this variable
+if create_dataSpkLFP == 1
+    disp('Set "create_dataSpkLFP = 0" if you already have "data_SpkLFP_cohData_v2.mat"')
+    %dataSpkLFP = struct();
+    for i = 1:6
+        data = []; load_var = [];
+        load_var = ['dataSpkLFP_rat',num2str(i)];
+        data = load(load_var);
+        dataSpkLFP.(['rat',num2str(i)]) = data.(['dataSpkLFP_rat',num2str(i)]);
+    end
+    disp('We will now save the data as "data_SpkLFP_cohData_v2"')
+    save('data_SpkLFP_cohData_v2','dataSpkLFP')
+else
+    load('data_spkLFP_cohData_v2','dataSpkLFP');
+end
+
+% the code run below should not be rerun unless you are trying to split up
+% and resave out the dataSpkLFP variable
+% this was run to split up the variable dataSpkLFP and save out individual
+% files for individual rats. This was because figshare gave problems
+% uploading the full file
+%{
+dataSpkLFP_rat1 = dataSpkLFP.rat1;
+save('dataSpkLFP_rat1.mat','dataSpkLFP_rat1')
+dataSpkLFP = rmfield(dataSpkLFP,'rat1');
+clear dataSpkLFP_rat1
+
+dataSpkLFP_rat2 = dataSpkLFP.rat2;
+save('dataSpkLFP_rat2.mat','dataSpkLFP_rat2')
+dataSpkLFP = rmfield(dataSpkLFP,'rat2');
+clear dataSpkLFP_rat2
+
+dataSpkLFP_rat3 = dataSpkLFP.rat3;
+save('dataSpkLFP_rat3.mat','dataSpkLFP_rat3')
+dataSpkLFP = rmfield(dataSpkLFP,'rat3');
+clear dataSpkLFP_rat3
+
+dataSpkLFP_rat4 = dataSpkLFP.rat4;
+save('dataSpkLFP_rat4.mat','dataSpkLFP_rat4')
+dataSpkLFP = rmfield(dataSpkLFP,'rat4');
+clear dataSpkLFP_rat4
+
+dataSpkLFP_rat5 = dataSpkLFP.rat5;
+save('dataSpkLFP_rat5.mat','dataSpkLFP_rat5')
+dataSpkLFP = rmfield(dataSpkLFP,'rat5');
+clear dataSpkLFP_rat5
+
+dataSpkLFP_rat6 = dataSpkLFP.rat6;
+save('dataSpkLFP_rat6.mat','dataSpkLFP_rat6')
+dataSpkLFP = rmfield(dataSpkLFP,'rat6');
+clear dataSpkLFP_rat6
+%}
+%{
+% what is below is using the raw dataSpkLFP file which was >5GB and giving
+% issues to figshare. To circumvent this, the new data_SpkLFP_cohData
+% variable has rat 7 removed and the following sessions from rat 6 removed.
+% Please note that rat 7 had no VMT recordings, but what similar to 4-6 in
+% that the data were from Stout and Griffin 2020. Also note that rat 6s
+% sessions removed below had LFP clipping events that made the LFP signals
+% difficult to work with. This was due to faulty input range assignment in
+% Cheetah. 
+
 disp('Loading and processing stout+hallock data...')
 rng('shuffle');
 
@@ -1082,6 +1246,7 @@ dataSpkLFP.rat6 = rmfield(dataSpkLFP.rat6,rat6fields);
 
 disp('Cleaning up workspace')
 clearvars -except dataSpkLFP sourceRoot sourceFolder sourceData sourceCode sourceRawCode
+%}
 
 %% defining high/low coh states
 disp('Defining high and low coh states using hallock and stout data')
@@ -1193,7 +1358,7 @@ xlabel('Rat ID')
 title('Stout + Hallock data')
 save('data_stoutHallockThresholds','thresholds');
 
-%% coh over delay
+%% Extended Fig. 6
 % removed appropriate rats, did not do coh  detect, but can replicate when
 % i do
 load_delayXcoherence=1;
@@ -1247,11 +1412,94 @@ else
     lowCohThreshold  = thresholds(:,1);
 end 
 clearvars -except thetaC dataSpkLFP sourceRoot sourceFolder sourceData sourceCode sourceRawCode highCohThreshold lowCohThreshold
+onlyHenry = 1; % cleaner dataset & same task
 
 % present data over delays binned into first 3 bins and last 3 bins of
 % the predictable delay phase
 % remove trials with all zeros
 thetaCog = thetaC;
+if onlyHenry == 1
+    thetaC(4:end,:)=[];
+    highCohThreshold(4:end)=[];
+    lowCohThreshold(4:end)=[];
+end
+
+% binning variable
+delayBins = linspace(0,size(thetaC{1},1),30/5); % 5s bins
+phighMat = []; plowMat = []; phighShuf = []; plowShuf = [];
+for rowi = 1:size(thetaC,1)
+    for coli = 1:size(thetaC,2)
+        if isempty(thetaC{rowi,coli})==0
+            % av over trials
+            remTrials = [];
+            remTrials = find(thetaC{rowi,coli}(1,:)==0);
+            thetaC{rowi,coli}(:,remTrials)=[];            
+            % get phigh and plow over trials
+            tempdata = []; tempdata = thetaC{rowi,coli};
+            phigh = []; plow = [];
+            for bini = 1:length(delayBins)-1
+                for triali = 1:size(tempdata,2)
+                    % get temporary data at trial res
+                    trialdata = [];
+                    trialdata = tempdata(delayBins(bini)+1:delayBins(bini+1),triali);
+                    
+                    % get phigh and plow
+                    phigh{bini}(triali) = (numel(find(trialdata > highCohThreshold(rowi))))/numel(trialdata);
+                    plow{bini}(triali)  = (numel(find(trialdata < lowCohThreshold(rowi))))/numel(trialdata);
+                
+                end
+            end
+            phighMat{rowi}(coli,:) = cellfun(@nanmean,phigh);
+            plowMat{rowi}(coli,:)  = cellfun(@nanmean,plow);
+            
+            % shuffled distribution
+            rng('default');
+            phigh = []; plow = [];
+            for bini = 1:length(delayBins)-1
+                for triali = 1:size(tempdata,2)
+                    % shuffle 1000 times
+                    disp('Shuffling')
+                    for n = 1:1000
+                        tempdata(:,triali) = randsample(tempdata(:,triali),size(tempdata,1));
+                    end                                        
+                    
+                    % get temporary data at trial res
+                    trialdata = [];
+                    trialdata = tempdata(delayBins(bini)+1:delayBins(bini+1),triali);
+                    
+                    % get phigh and plow
+                    phigh{bini}(triali) = (numel(find(trialdata > highCohThreshold(rowi))))/numel(trialdata);
+                    plow{bini}(triali)  = (numel(find(trialdata < lowCohThreshold(rowi))))/numel(trialdata);
+                
+                end
+            end
+            phighShuf{rowi}(coli,:) = cellfun(@nanmean,phigh);
+            plowShuf{rowi}(coli,:)  = cellfun(@nanmean,plow);            
+            
+        end
+    end
+end
+phighMat = vertcat(phighMat{:});
+plowMat  = vertcat(plowMat{:});
+phighShuf = vertcat(phighShuf{:});
+plowShuf  = vertcat(plowShuf{:});
+
+delayX = linspace(0,30,30/5); % 5s bins
+figure('color','w'); hold on;
+shadedErrorBar(delayX(2:end),mean(phighMat,1),stderr(phighMat,1),'b',0)
+%shadedErrorBar(delayX(2:end),mean(phighShuf,1),stderr(phighShuf,1),'r',0)
+plot(delayX(2:end),mean(phighShuf,1),'r','LineWidth',1)
+axis tight
+ylim([0.05 0.18])
+
+p=[];
+for i = 1:size(phighMat,2)
+    [h,p(i),ci{i},stat{i}] = ttest(phighMat(:,i),mean(phighShuf(i),1));
+end
+p = p.*(size(phighMat,2))
+
+
+%{
 for rowi = 1:size(thetaC,1)
     for coli = 1:size(thetaC,2)
         if isempty(thetaC{rowi,coli})==0
@@ -1470,6 +1718,144 @@ outlier = 'n';
 multiBoxPlot(data,xLabels,yLabel,orient,outlier)   
 [h,p]=ttest(data{1},data{2})
 %}
+%}
+
+% run an fft over your signal
+for rowi = 1:size(thetaC,1)
+    for coli = 1:size(thetaC,2)
+        thetaAvg{rowi,coli} = mean(thetaC{rowi,coli},2);
+    end
+end
+thetaAvg = thetaAvg(:);
+thetaAvg = emptyCellErase(thetaAvg);
+thetaAvg = horzcat(thetaAvg{:});
+
+figure('color','w');
+delayX = linspace(0,30,size(thetaAvg,1)); % 5s bins
+shadedErrorBar(delayX,mean(thetaAvg,2),stderr(thetaAvg,2),'k',0);
+box off
+mean(lowCohThreshold)
+
+% plot data as an oscillator
+srate = 115/30;
+exData = thetaC{1}(:);
+figure; 
+subplot 311; 
+plot(exData-mean(exData))
+subplot 312
+plot(exData);
+subplot 313
+smoothEx = smoothdata(exData,'gauss',40);
+plot(smoothEx)
+
+[pxx,f] = periodogram(exData',[],[],srate)
+figure; plot(f,log10(pxx))
+xlim([0 0.04])
+
+% -- autocorrelation -- %
+% at the fifth lag, there is no sharing of data between lags
+figure('color','w'); 
+[acf,confAcf] = autocorr(exData,'NumLags',40)
+[acf_shuff,confShuf] = autocorr(randsample(exData,length(exData)),'NumLags',40);
+
+plot(0:40,acf,'k');
+hold on; plot(0:40,acf_shuff,'r');
+
+delayBins = linspace(0,size(thetaC{1},1),30/5); % 5s bins
+acf = []; acf_shuff = [];
+for rowi = 1:size(thetaC,1)
+    for coli = 1:size(thetaC,2)
+        if isempty(thetaC{rowi,coli})==0
+            % av over trials
+            remTrials = [];
+            remTrials = find(thetaC{rowi,coli}(1,:)==0);
+            thetaC{rowi,coli}(:,remTrials)=[];            
+            % get phigh and plow over trials
+            tempdata = []; tempdata = thetaC{rowi,coli};
+            for triali = 1:size(tempdata,2)
+                % get temporary data at trial res
+                trialdata = [];
+                trialdata = tempdata(:,triali);
+
+                % autocorr
+                [acf{rowi,coli}(triali,:),confAcf] = autocorr(trialdata,'NumLags',50);
+
+            end
+
+            % shuffled distribution
+            rng('default');
+            phigh = []; plow = [];
+            for bini = 1:length(delayBins)-1
+                for triali = 1:size(tempdata,2)
+                    % shuffle 1000 times
+                    disp('Shuffling')
+                    for n = 1:1000
+                        tempdata(:,triali) = randsample(tempdata(:,triali),size(tempdata,1));
+                    end                                        
+                    
+                    % get temporary data at trial res
+                    trialdata = [];
+                    trialdata = tempdata(:,triali);
+                    
+                    % autocorr
+                    [acf_shuff{rowi,coli}(triali,:),confAcf] = autocorr(trialdata,'NumLags',50);
+
+                end
+            end
+        end
+    end
+end
+
+for rowi = 1:size(acf,1)
+    for coli = 1:size(acf,2)
+        acf_avg{rowi,coli} = mean(acf{rowi,coli},1);
+        acf_shuff_avg{rowi,coli} = mean(acf_shuff{rowi,coli},1);
+    end
+end
+acf_avg = acf_avg(:);
+acf_shuff_avg = acf_shuff_avg(:);
+[~,remData] = emptyCellErase(acf_avg);
+acf_avg(remData)=[];
+acf_shuff_avg(remData)=[];
+
+% collapse across sess
+acf_sess = vertcat(acf_avg{:});
+acf_sess_shuff = vertcat(acf_shuff_avg{:});
+
+figure('color','w'); hold on;
+shadedErrorBar(0:50,mean(acf_sess,1),stderr(acf_sess,1),'k',1);
+shadedErrorBar(0:50,mean(acf_sess_shuff,1),stderr(acf_sess_shuff,1),'r',1);
+ylabel('correlation')
+xlabel('lag')
+
+figure('color','w'); hold on;
+shadedErrorBar(0:50,mean(acf_sess,1),stderr(acf_sess,1),'k',1);
+%shadedErrorBar(0:50,mean(acf_sess_shuff,1),stderr(acf_sess_shuff,1),'r',1);
+ylabel('correlation')
+xlabel('lag')
+xlim([0 10])
+
+lag = 5;
+[z,p] = ztest(mean(acf_sess_shuff(:,5)),mean(acf_sess(:,5)),std(acf_sess(:,5)));
+
+for i = 1:10
+    [h,p(i)] = ttest(acf_sess(:,i),mean(acf_sess_shuff(:,i)));
+end
+figure; plot(0:9,p.*5)
+
+figure('color','w'); hold on;
+    shadedErrorBar(0:50,mean(acf_sess,1),stderr(acf_sess,1),'k',1);
+    plot(0:50,mean(acf_sess_shuff,1),'r','LineWidth',1);
+    ylabel('correlation')
+    xlabel('lag')
+    xlim([0 9])
+yyaxis right; 
+    p(1:5)=NaN;
+    plot(0:9,p.*4)
+    xlimits = xlim;
+    ylimits = ylim;
+    line([xlimits(1) xlimits(2)],[0.05 0.05],'Color','r')
+    ylabel('p-value')
 
 %% prep signal data for analysis
 clear datahigh datalow dataex C t
@@ -2208,7 +2594,53 @@ readStats(data2plot(:,1),0,parametric,stat_test,'GP PF2HC',numCorrections);
 readStats(data2plot(:,2),0,parametric,stat_test,'GP HC2PF',numCorrections);
 readStats(data2plot(:,1),data2plot(:,2),parametric,stat_test,'PF2HC v HC2PF',numCorrections);
 
-%% entrainment
+%% spike phase analysis
+
+% we will once again have to create a variable
+disp('Please note that the following procedure will load ~2-3GB onto RAM. ')
+disp('We recommend at least 16GB RAM to proceed. You will need this variable to reproduce key figures below')
+disp('Press any key to continue');
+pause();
+clear dataSpkLFP
+cd(sourceData);
+create_dataSpkLFP = 1; % set to 0 if you have already created this variable
+if create_dataSpkLFP == 1
+    disp('Set "create_dataSpkLFP = 0" if you already have "data_SpkLFP_cohData_v2.mat"')
+    for i = 1:3
+        data = []; load_var = [];
+        load_var = ['dataSpkLFP_entrainment_rat',num2str(i)];
+        data = load(load_var);
+        dataSpkLFP.(['rat',num2str(i)]) = data.(['dataSpkLFP_rat',num2str(i)]);
+    end
+    disp('We will now save the data as "data_SpkLFP_cohData_v2"')
+    save('data_SpkLFP_entrainment','dataSpkLFP')
+else
+    load('data_spkLFP_entrainment','dataSpkLFP');
+end
+
+% the code run below should not be rerun unless you are trying to split up
+% and resave out the dataSpkLFP variable
+% this was run to split up the variable dataSpkLFP and save out individual
+% files for individual rats. This was because figshare gave problems
+% uploading the full file
+%{
+dataSpkLFP_rat1 = dataSpkLFP.rat1;
+save('dataSpkLFP_entrainment_rat1.mat','dataSpkLFP_rat1')
+dataSpkLFP = rmfield(dataSpkLFP,'rat1');
+clear dataSpkLFP_rat1
+
+dataSpkLFP_rat2 = dataSpkLFP.rat2;
+save('dataSpkLFP_entrainment_rat2.mat','dataSpkLFP_rat2')
+dataSpkLFP = rmfield(dataSpkLFP,'rat2');
+clear dataSpkLFP_rat2
+
+dataSpkLFP_rat3 = dataSpkLFP.rat3;
+save('dataSpkLFP_entrainment_rat3.mat','dataSpkLFP_rat3')
+dataSpkLFP = rmfield(dataSpkLFP,'rat3');
+clear dataSpkLFP_rat3
+
+%}
+
 loadSourceData = 1; % set this value to 0 if you want to rerun analyses that generated datahigh and datalow for entrainment
 if loadSourceData == 0
     % this entrainment analysis uses LFP data and spiking data acquired across
@@ -2747,12 +3179,20 @@ datalow(idxRem)=[];
 %}
 
 % entrainment
-rerunSFC = 1;
+rerunSFC = 0;
 if rerunSFC == 1
+    % I have a powerpoint in the data folder showing the importance of
+    % these parameters. They provide consistent results with interp method,
+    % so long as theta:delta ratio is set. This makes sense bc the interp
+    % method only works with theta phase it can estimate, while hilbert can
+    % estimate anything. 4-12Hz was used to account for the fact that theta
+    % can vary a bit over time and to better capture the shape of the
+    % oscillation. I've noticed that restricting this too much almost
+    % forces the data to 8hz shape when it may not be.
     srate = 2000;
-    lowpass = 4; highpass = 12; % JW2005; Hallock 2016;
+    lowpass = 10; highpass = 30; % JW2005; Hallock 2016; (4-12Hz theta, 15-20Hz beta)
     filterThetaDelta = 'y';     % Hallock2016
-    phaseMethod = 'hilbert';    % JW2005 and Hallock 2016
+    phaseMethod = 'hilbert';    % Buzsaki lab suggests it is more conservative
     
     for i = 1:length(datahigh)
         if isempty(datahigh{i})==1
@@ -2814,7 +3254,7 @@ if rerunSFC == 1
         frHigh{i} = frTempHigh;
         frLow{i}  = frTempLow;
 
-        % entrainment
+        % entrainment and SFC
         for uniti = 1:size(spikeTimeHighData,1)
 
             % get spikes
@@ -2826,14 +3266,6 @@ if rerunSFC == 1
             spkIdxLow  = find(spksLow);
 
             % -- calculate entrainment -- %
-
-            % pfc high
-            %{
-            [spkPhase_pfcH{i}{uniti},spkRadian_pfcH{i}{uniti},...
-                rayleighsP_pfcH{i}{uniti},rayleighsZ_pfcH{i}{uniti},...
-                bsMrl_pfcH{i}{uniti},n_pfcH{i}{uniti},xout_pfcH{i}{uniti}] = ...
-                unitEntrainment(spkIdxHigh,lfpHighPFC,lowpass,highpass,srate,'hilbert',filterThetaDelta); 
-            %}
             
             % vmt high
             [spkPhase_vmtH{i}{uniti},spkRadian_vmtH{i}{uniti},...
@@ -2846,14 +3278,6 @@ if rerunSFC == 1
                 rayleighsP_hpcH{i}{uniti},rayleighsZ_hpcH{i}{uniti},...
                 bsMrl_hpcH{i}{uniti},n_hpcH{i}{uniti},xout_hpcH{i}{uniti}] = ...
                 unitEntrainment(spkIdxHigh,lfpHighHPC,lowpass,highpass,srate,phaseMethod,filterThetaDelta);              
-
-            % pfc low
-            %{
-            [spkPhase_pfcL{i}{uniti},spkRadian_pfcL{i}{uniti},...
-                rayleighsP_pfcL{i}{uniti},rayleighsZ_pfcL{i}{uniti},...
-                bsMrl_pfcL{i}{uniti},n_pfcL{i}{uniti},xout_pfcL{i}{uniti}] = ...
-                unitEntrainment(spkIdxLow,lfpLowPFC,lowpass,highpass,srate,'hilbert',filterThetaDelta);              
-            %}
             
             % vmt low
             [spkPhase_vmtL{i}{uniti},spkRadian_vmtL{i}{uniti},...
@@ -2866,7 +3290,7 @@ if rerunSFC == 1
                 rayleighsP_hpcL{i}{uniti},rayleighsZ_hpcL{i}{uniti},...
                 bsMrl_hpcL{i}{uniti},n_hpcL{i}{uniti},xout_hpcL{i}{uniti}] = ...
                 unitEntrainment(spkIdxLow,lfpLowHPC,lowpass,highpass,srate,phaseMethod,filterThetaDelta);           
-
+                        
         end
         disp(['Completed with session ',num2str(i)])
     end
@@ -2875,133 +3299,16 @@ if rerunSFC == 1
         spkIdxHigh spkIdxLow spkCountH spkCountL spikeTimeHighData spikeTimeLowData ...
         remData idx frTempHigh frTempLow
     disp('Saving results...')
-    save('data_ent_06212023')
+    date = todaysDate();
+    save(['data_ent_',date])   
 else
     % this is the cohen method. I tried Welch's, but the results were not
     % reliable
-    load('data_ent_06212023');
+    load('data_ent_21_Jun_2023'); % load for theta
+    %load('data_ent_22_Jun_2023'); % load for beta
 end
 
-% remove empty arrays
-rayleighsP_hpcH = emptyCellErase(rayleighsP_hpcH);
-rayleighsP_hpcL = emptyCellErase(rayleighsP_hpcL);
-rayleighsP_vmtH = emptyCellErase(rayleighsP_vmtH);
-rayleighsP_vmtL = emptyCellErase(rayleighsP_vmtL);
-
-% do this twice (cell inside a cell)
-for i = 1:2
-    rayleighsP_hpcH = horzcat(rayleighsP_hpcH{:});
-    rayleighsP_hpcL = horzcat(rayleighsP_hpcL{:});
-    rayleighsP_vmtH = horzcat(rayleighsP_vmtH{:});
-    rayleighsP_vmtL = horzcat(rayleighsP_vmtL{:});
-end
-
-% convert to double
-rayleighsP_hpcH = double(rayleighsP_hpcH);
-rayleighsP_hpcL = double(rayleighsP_hpcL);
-rayleighsP_vmtH = double(rayleighsP_vmtH);
-rayleighsP_vmtL = double(rayleighsP_vmtL);
-
-% percent mod
-perc_hpcH = (numel(find(rayleighsP_hpcH<0.05))/numel(rayleighsP_hpcH))*100;
-perc_vmtH = (numel(find(rayleighsP_vmtH<0.05))/numel(rayleighsP_vmtH))*100;
-perc_hpcL = (numel(find(rayleighsP_hpcL<0.05))/numel(rayleighsP_hpcL))*100;
-perc_vmtL = (numel(find(rayleighsP_vmtL<0.05))/numel(rayleighsP_vmtL))*100;
-totalHPC  = (numel(find(rayleighsP_hpcH<0.05 | rayleighsP_hpcL<0.05))/numel(rayleighsP_hpcH))*100;
-
-figure('color','w');
-multiBarPlot(horzcat(perc_vmtH,perc_vmtL,perc_hpcH,perc_hpcL),[{'VMT high'} {'VMT low'} {'HPC high'} {'HPC low'}],'% mod.');
-
-% rayleighs z and bootstrapped mrl
-bsMrl_hpcH = emptyCellErase(bsMrl_hpcH);
-bsMrl_hpcL = emptyCellErase(bsMrl_hpcL);
-bsMrl_vmtH = emptyCellErase(bsMrl_vmtH);
-bsMrl_vmtL = emptyCellErase(bsMrl_vmtL);
-
-% do this twice (cell inside a cell)
-for i = 1:2
-    bsMrl_hpcH = horzcat(bsMrl_hpcH{:});
-    bsMrl_hpcL = horzcat(bsMrl_hpcL{:});
-    bsMrl_vmtH = horzcat(bsMrl_vmtH{:});
-    bsMrl_vmtL = horzcat(bsMrl_vmtL{:});
-end
-diffZ_hpc = (bsMrl_hpcH-bsMrl_hpcL)./(bsMrl_hpcH+bsMrl_hpcL);
-diffZ_vmt = (bsMrl_vmtH-bsMrl_vmtL)./(bsMrl_vmtH+bsMrl_vmtL);
-data2plot = []; data2plot{1} = diffZ_hpc; data2plot{2} = diffZ_vmt;
-figure('color','w');
-multiBarPlot(data2plot,[{'HPC'} {'VMT'}],'Bootstrapped MRL');
-
-% remove empty arrays
-rayleighsZ_hpcH = emptyCellErase(rayleighsZ_hpcH);
-rayleighsZ_hpcL = emptyCellErase(rayleighsZ_hpcL);
-rayleighsZ_vmtH = emptyCellErase(rayleighsZ_vmtH);
-rayleighsZ_vmtL = emptyCellErase(rayleighsZ_vmtL);
-
-% do this twice (cell inside a cell)
-for i = 1:2
-    rayleighsZ_hpcH = horzcat(rayleighsZ_hpcH{:});
-    rayleighsZ_hpcL = horzcat(rayleighsZ_hpcL{:});
-    rayleighsZ_vmtH = horzcat(rayleighsZ_vmtH{:});
-    rayleighsZ_vmtL = horzcat(rayleighsZ_vmtL{:});
-end
-
-% plot examples
-spkRadian_hpcH = emptyCellErase(spkRadian_hpcH);
-spkRadian_hpcL = emptyCellErase(spkRadian_hpcL);
-spkRadian_vmtH = emptyCellErase(spkRadian_vmtH);
-spkRadian_vmtL = emptyCellErase(spkRadian_vmtL);
-
-spkRadian_hpcH = horzcat(spkRadian_hpcH{:});
-spkRadian_hpcL = horzcat(spkRadian_hpcL{:});
-spkRadian_vmtH = horzcat(spkRadian_vmtH{:});
-spkRadian_vmtL = horzcat(spkRadian_vmtL{:});
-
-uniti = 22;    
-figure('color','w');
-subplot 221;
-    circ_plot(spkRadian_hpcH{uniti},'hist',[],18,false,true,'lineWidth',4,'color','b');
-    title('High')
-subplot 222;
-    circ_plot(spkRadian_hpcL{uniti},'hist',[],18,false,true,'lineWidth',4,'color','r');
-    title('Low')
-disp(['High Raleighs Z = ',num2str(rayleighsZ_hpcH(uniti)),' p = ',num2str(rayleighsP_hpcH(uniti))]);
-disp(['High Raleighs Z = ',num2str(rayleighsZ_hpcL(uniti)),' p = ',num2str(rayleighsP_hpcL(uniti))]);
-
-% phase histogram information
-xout_hpcH = emptyCellErase(xout_hpcH);
-xout_hpcL = emptyCellErase(xout_hpcL);
-xout_vmtH = emptyCellErase(xout_vmtH);
-xout_vmtL = emptyCellErase(xout_vmtL);
-xout_hpcH = horzcat(xout_hpcH{:});
-xout_hpcL = horzcat(xout_hpcL{:});
-xout_vmtH = horzcat(xout_vmtH{:});
-xout_vmtL = horzcat(xout_vmtL{:});
-
-n_hpcH = emptyCellErase(n_hpcH);
-n_hpcL = emptyCellErase(n_hpcL);
-n_vmtH = emptyCellErase(n_vmtH);
-n_vmtL = emptyCellErase(n_vmtL);
-n_hpcH = horzcat(n_hpcH{:});
-n_hpcL = horzcat(n_hpcL{:});
-n_vmtH = horzcat(n_vmtH{:});
-n_vmtL = horzcat(n_vmtL{:});
-
-subplot(223)
-    bar(xout_hpcH{uniti},n_hpcH{uniti},'FaceColor','b')
-    xlim ([0 360])
-    xlabel ('Phase')
-    ylabel ('Spike Count') 
-    title('hilbert')
-subplot(224)
-    bar(xout_hpcL{uniti},n_hpcL{uniti},'FaceColor','r')
-    xlim ([0 360])
-    xlabel ('Phase')
-    ylabel ('Spike Count') 
-    title('hilbert')
-   
-%% SFC
-clearvars -except datahigh datalow
-
+% SFC
 if rerunSFC == 1
     freq = [1:.5:20]; srate = 2000; nCycles = 6;
     for i = 1:length(datahigh)
@@ -3075,45 +3382,246 @@ else
     % reliable
     load('data_sfc_21_Jun_2023');
 end
-% reformat
-sfcHighPFC = sfcHighPFC(:);
-sfcHighVMT = sfcHighVMT(:);
-sfcHighHPC = sfcHighHPC(:);
-sfcLowPFC  = sfcLowPFC(:);
-sfcLowVMT  = sfcLowVMT(:);
-sfcLowHPC  = sfcLowHPC(:);
+load('data_spkCounts');
+
+%% reformatting and plotting spike-phase results
+
+% rayleighs p
+rayleighsP_hpcH = emptyCellErase(rayleighsP_hpcH);
+rayleighsP_hpcL = emptyCellErase(rayleighsP_hpcL);
+rayleighsP_vmtH = emptyCellErase(rayleighsP_vmtH);
+rayleighsP_vmtL = emptyCellErase(rayleighsP_vmtL);
+
+% bootstrapped mrl
+bsMrl_hpcH = emptyCellErase(bsMrl_hpcH);
+bsMrl_hpcL = emptyCellErase(bsMrl_hpcL);
+bsMrl_vmtH = emptyCellErase(bsMrl_vmtH);
+bsMrl_vmtL = emptyCellErase(bsMrl_vmtL);
+
+% Z
+rayleighsZ_hpcH = emptyCellErase(rayleighsZ_hpcH);
+rayleighsZ_hpcL = emptyCellErase(rayleighsZ_hpcL);
+rayleighsZ_vmtH = emptyCellErase(rayleighsZ_vmtH);
+rayleighsZ_vmtL = emptyCellErase(rayleighsZ_vmtL);
+
+% spk radian information
+spkRadian_hpcH = emptyCellErase(spkRadian_hpcH);
+spkRadian_hpcL = emptyCellErase(spkRadian_hpcL);
+spkRadian_vmtH = emptyCellErase(spkRadian_vmtH);
+spkRadian_vmtL = emptyCellErase(spkRadian_vmtL);
+
+% phase histogram info
+xout_hpcH = emptyCellErase(xout_hpcH);
+xout_hpcL = emptyCellErase(xout_hpcL);
+xout_vmtH = emptyCellErase(xout_vmtH);
+xout_vmtL = emptyCellErase(xout_vmtL);
+n_hpcH    = emptyCellErase(n_hpcH);
+n_hpcL    = emptyCellErase(n_hpcL);
+n_vmtH    = emptyCellErase(n_vmtH);
+n_vmtL    = emptyCellErase(n_vmtL);
+
+% same for sfc
+sfcHighHPC = emptyCellErase(sfcHighHPC);
+sfcHighVMT = emptyCellErase(sfcHighVMT);
+sfcLowHPC  = emptyCellErase(sfcLowHPC);
+sfcLowVMT  = emptyCellErase(sfcLowVMT);
 
 % concatenate
-sfcHighPFC = vertcat(sfcHighPFC{:});
 sfcHighVMT = vertcat(sfcHighVMT{:});
 sfcHighHPC = vertcat(sfcHighHPC{:});
-sfcLowPFC  = vertcat(sfcLowPFC{:});
 sfcLowVMT  = vertcat(sfcLowVMT{:});
 sfcLowHPC  = vertcat(sfcLowHPC{:});
 
-% diff scores
-diff_PFC = (sfcHighPFC-sfcLowPFC)./(sfcHighPFC+sfcLowPFC);
+% reformat
+rayleighsP_hpcH = horzcat(rayleighsP_hpcH{:});
+rayleighsP_hpcL = horzcat(rayleighsP_hpcL{:});
+rayleighsP_vmtH = horzcat(rayleighsP_vmtH{:});
+rayleighsP_vmtL = horzcat(rayleighsP_vmtL{:});
+bsMrl_hpcH      = horzcat(bsMrl_hpcH{:});
+bsMrl_hpcL      = horzcat(bsMrl_hpcL{:});
+bsMrl_vmtH      = horzcat(bsMrl_vmtH{:});
+bsMrl_vmtL      = horzcat(bsMrl_vmtL{:});    
+rayleighsZ_hpcH = horzcat(rayleighsZ_hpcH{:});
+rayleighsZ_hpcL = horzcat(rayleighsZ_hpcL{:});
+rayleighsZ_vmtH = horzcat(rayleighsZ_vmtH{:});
+rayleighsZ_vmtL = horzcat(rayleighsZ_vmtL{:});    
+spkRadian_hpcH  = horzcat(spkRadian_hpcH{:});
+spkRadian_hpcL  = horzcat(spkRadian_hpcL{:});
+spkRadian_vmtH  = horzcat(spkRadian_vmtH{:});
+spkRadian_vmtL  = horzcat(spkRadian_vmtL{:});
+xout_hpcH       = horzcat(xout_hpcH{:});
+xout_hpcL       = horzcat(xout_hpcL{:});
+xout_vmtH       = horzcat(xout_vmtH{:});
+xout_vmtL       = horzcat(xout_vmtL{:});
+n_hpcH          = horzcat(n_hpcH{:});
+n_hpcL          = horzcat(n_hpcL{:});
+n_vmtH          = horzcat(n_vmtH{:});
+n_vmtL          = horzcat(n_vmtL{:});
+
+% reformat
+rayleighsP_hpcH = empty2nan(rayleighsP_hpcH);
+rayleighsP_hpcL = empty2nan(rayleighsP_hpcL);
+rayleighsP_vmtH = empty2nan(rayleighsP_vmtH);
+rayleighsP_vmtL = empty2nan(rayleighsP_vmtL);
+bsMrl_hpcH      = empty2nan(bsMrl_hpcH);
+bsMrl_hpcL      = empty2nan(bsMrl_hpcL);
+bsMrl_vmtH      = empty2nan(bsMrl_vmtH);
+bsMrl_vmtL      = empty2nan(bsMrl_vmtL);    
+rayleighsZ_hpcH = empty2nan(rayleighsZ_hpcH);
+rayleighsZ_hpcL = empty2nan(rayleighsZ_hpcL);
+rayleighsZ_vmtH = empty2nan(rayleighsZ_vmtH);
+rayleighsZ_vmtL = empty2nan(rayleighsZ_vmtL);    
+spkRadian_hpcH  = empty2nan(spkRadian_hpcH);
+spkRadian_hpcL  = empty2nan(spkRadian_hpcL);
+spkRadian_vmtH  = empty2nan(spkRadian_vmtH);
+spkRadian_vmtL  = empty2nan(spkRadian_vmtL);
+xout_hpcH       = empty2nan(xout_hpcH);
+xout_hpcL       = empty2nan(xout_hpcL);
+xout_vmtH       = empty2nan(xout_vmtH);
+xout_vmtL       = empty2nan(xout_vmtL);
+n_hpcH          = empty2nan(n_hpcH);
+n_hpcL          = empty2nan(n_hpcL);
+n_vmtH          = empty2nan(n_vmtH);
+n_vmtL          = empty2nan(n_vmtL);
+
+% reformat again
+rayleighsP_hpcH = horzcat(rayleighsP_hpcH{:});
+rayleighsP_hpcL = horzcat(rayleighsP_hpcL{:});
+rayleighsP_vmtH = horzcat(rayleighsP_vmtH{:});
+rayleighsP_vmtL = horzcat(rayleighsP_vmtL{:});
+bsMrl_hpcH      = horzcat(bsMrl_hpcH{:});
+bsMrl_hpcL      = horzcat(bsMrl_hpcL{:});
+bsMrl_vmtH      = horzcat(bsMrl_vmtH{:});
+bsMrl_vmtL      = horzcat(bsMrl_vmtL{:});    
+rayleighsZ_hpcH = horzcat(rayleighsZ_hpcH{:});
+rayleighsZ_hpcL = horzcat(rayleighsZ_hpcL{:});
+rayleighsZ_vmtH = horzcat(rayleighsZ_vmtH{:});
+rayleighsZ_vmtL = horzcat(rayleighsZ_vmtL{:}); 
+
+% percent mod
+rpHPCh = rayleighsP_hpcH(~isnan(rayleighsP_hpcH));
+rpHPCl = rayleighsP_hpcL(~isnan(rayleighsP_hpcL));
+rpVMTh = rayleighsP_vmtH(~isnan(rayleighsP_vmtH));
+rpVMTl = rayleighsP_vmtL(~isnan(rayleighsP_vmtL));
+perc_hpcH = (numel(find(rpHPCh<0.05))/numel(rpHPCh))*100;
+perc_vmtH = (numel(find(rpVMTh<0.05))/numel(rpVMTh))*100;
+perc_hpcL = (numel(find(rpHPCl<0.05))/numel(rpHPCl))*100;
+perc_vmtL = (numel(find(rpVMTl<0.05))/numel(rpVMTl))*100;
+totalHPC  = (numel(find(rpHPCh<0.05 | rpHPCl<0.05))/numel(rpHPCl))*100;
+
+figure('color','w');
+multiBarPlot(horzcat(perc_vmtH,perc_vmtL,perc_hpcH,perc_hpcL),[{'VMT high'} {'VMT low'} {'HPC high'} {'HPC low'}],'% mod.');
+
+% bootstrapped mrl
+diffMRL_hpc = (bsMrl_hpcH-bsMrl_hpcL)./(bsMrl_hpcH+bsMrl_hpcL);
+diffMRL_vmt = (bsMrl_vmtH-bsMrl_vmtL)./(bsMrl_vmtH+bsMrl_vmtL);
+data2plot = []; data2plot{1} = diffMRL_hpc; data2plot{2} = diffMRL_vmt;
+figure('color','w');
+multiBarPlot(data2plot,[{'HPC'} {'VMT'}],'Bootstrapped MRL');
+
+diffZ_hpc = (rayleighsZ_hpcH-rayleighsZ_hpcL)./(rayleighsZ_hpcH+rayleighsZ_hpcL);
+diffZ_vmt = (rayleighsZ_vmtH-rayleighsZ_vmtL)./(rayleighsZ_vmtH+rayleighsZ_vmtL);
+data2plot = []; data2plot{1} = diffZ_hpc; data2plot{2} = diffZ_vmt;
+figure('color','w');
+multiBarPlot(data2plot,[{'HPC'} {'VMT'}],'Rayleighs Z');
+
+uniti = 22;    
+figure('color','w');
+subplot 221;
+    circ_plot(spkRadian_hpcH{uniti},'hist',[],18,false,true,'lineWidth',4,'color','b');
+    title('High')
+subplot 222;
+    circ_plot(spkRadian_hpcL{uniti},'hist',[],18,false,true,'lineWidth',4,'color','r');
+    title('Low')
+disp(['High Raleighs Z = ',num2str(rayleighsZ_hpcH(uniti)),' p = ',num2str(rayleighsP_hpcH(uniti))]);
+disp(['High Raleighs Z = ',num2str(rayleighsZ_hpcL(uniti)),' p = ',num2str(rayleighsP_hpcL(uniti))]);
+
+subplot(223)
+    bar(xout_hpcH{uniti},n_hpcH{uniti},'FaceColor','b')
+    xlim ([0 360])
+    xlabel ('Phase')
+    ylabel ('Spike Count') 
+    box off
+subplot(224)
+    bar(xout_hpcL{uniti},n_hpcL{uniti},'FaceColor','r')
+    xlim ([0 360])
+    xlabel ('Phase')
+    ylabel ('Spike Count') 
+    box off
+
+% -- sfc -- %
 diff_VMT = (sfcHighVMT-sfcLowVMT)./(sfcHighVMT+sfcLowVMT);
 diff_HPC = (sfcHighHPC-sfcLowHPC)./(sfcHighHPC+sfcLowHPC);
 
 figure('color','w'); hold on;
-    shadedErrorBar(freq,mean(diff_PFC,1),stderr(diff_PFC,1),'k',1);
     shadedErrorBar(freq,mean(diff_VMT,1),stderr(diff_VMT,1),'g',0);
-    shadedErrorBar(freq,mean(diff_HPC,1),stderr(diff_HPC,1),'b',1);
+    shadedErrorBar(freq,mean(diff_HPC,1),stderr(diff_HPC,1),'b',0);
     axis tight;
-    
-% plot figures
-figure('color','w')
-subplot 311; hold on;
-    shadedErrorBar(freq,mean(sfcHighPFC,1),stderr(sfcHighPFC,1),'b',1);
-    shadedErrorBar(freq,mean(sfcLowPFC,1),stderr(sfcLowPFC,1),'r',1);
-subplot 312; hold on;
-    shadedErrorBar(freq,mean(sfcHighVMT,1),stderr(sfcHighVMT,1),'b',1);
-    shadedErrorBar(freq,mean(sfcLowVMT,1),stderr(sfcLowVMT,1),'r',1);
-subplot 313; hold on;
-    shadedErrorBar(freq,mean(sfcHighHPC,1),stderr(sfcHighHPC,1),'b',1);
-    shadedErrorBar(freq,mean(sfcLowHPC,1),stderr(sfcLowHPC,1),'r',1);
+    xlabel('Frequency (Hz)')
+    ylabel('Spike field coherence (diff)')
+    ylimits = ylim; xlimits = xlim;
 
+    p = []; statVM = [];
+    for i = 1:size(diff_VMT,2)
+        [h,p(i),ci,stat]=ttest(diff_VMT(:,i));
+        statVM(i,:)=stat.tstat;
+    end 
+    [h, crit_p, adj_ci_cvrg, padj]=fdr_bh(p);
+    pLine = padj;
+    pLine(pLine>0.05)=NaN;
+    pLine(pLine<0.05)=ylimits(2);
+    line(freq,pLine,'color','g','LineWidth',2) 
+    
+    p = []; statHC = [];
+    for i = 1:size(diff_HPC,2)
+        [h,p(i),ci,stat]=ttest(diff_HPC(:,i));
+        statHC(i,:)=stat.tstat;
+    end 
+    [h, crit_p, adj_ci_cvrg, padj]=fdr_bh(p',0.05,'pdep','yes');
+    pLine = padj;
+    pLine(pLine>0.05)=NaN;
+    pLine(pLine<0.05)=ylimits(2);
+    line(freq,pLine,'color','b','LineWidth',2) 
+     
+% a unit that entrainment analysis discovered - unit 22
+figure('color','w'); plot(freq,sfcHighHPC(22,:),'b','LineWidth',2)
+hold on; plot(freq,sfcLowHPC(22,:),'r','LineWidth',2)
+box off
+
+% get mod units and examine sfc
+hpcModH = find(rayleighsP_hpcH<0.05);
+hpcModL = find(rayleighsP_hpcL<0.05);
+vmtModH = find(rayleighsP_vmtH<0.05);
+vmtModL = find(rayleighsP_vmtL<0.05);
+
+% get sfc
+diff_HPC_modH = sfcHighHPC(hpcModH,:);
+diff_HPC_modL = sfcLowHPC(hpcModL,:);
+diff_VMT_modH = sfcHighVMT(vmtModH,:);
+diff_VMT_modL = sfcLowVMT(vmtModL,:);
+
+figure('color','w'); hold on;
+    plot(freq,mean(sfcHighHPC,1),'b','LineWidth',2)
+    plot(freq,mean(sfcHighVMT,1),'m','LineWidth',2)
+
+plot(freq,mean(sfcLowHPC(hpcModL,:),1),'r','LineWidth',2)
+
+figure('color','w'); 
+subplot 211; hold on;
+    plot(freq,mean(sfcHighHPC,1),'b','LineWidth',2)
+    plot(freq,mean(sfcHighVMT,1),'m','LineWidth',2)
+subplot 212; hold on;
+    plot(freq,mean(sfcLowHPC,1),'b','LineWidth',2)
+    plot(freq,mean(sfcLowVMT,1),'m','LineWidth',2)
+    for i = 1:size(sfcHighHPC,2)
+        [h,p(i)]=ttest(sfcHighHPC(:,i),sfcHighVMT(:,i));
+    end
+    [h, crit_p, adj_ci_cvrg, adj_p]=fdr_bh(p);
+
+    
+% - an exploratory analysis - can ignore - %
+% Was trying to identify if certain populations could be detected based on
+% their sfc or entrainment patterns
 % fishiris has 3 species of 50 data points on x-axis, and dimensions of the flower on y
 dataK = vertcat(diff_VMT,diff_HPC);
     
@@ -3129,58 +3637,19 @@ k=va.OptimalK;
 c=kmeans(dataK,k);
 
 % separate data
-clustIdxPFC    = c(1:size(diff_PFC),:);
-c(1:size(diff_PFC),:)=[];
 clustIdxVMT    = c(1:size(diff_VMT),:);
 c(1:size(diff_VMT),:)=[];
 clustIdxHPC    = c(1:size(diff_HPC),:);
 c(1:size(diff_HPC),:)=[];
 
 % separate clusters
-diff_PFC_clust{1} = diff_PFC(clustIdxPFC==1,:);
-diff_PFC_clust{2} = diff_PFC(clustIdxPFC==2,:);
 diff_VMT_clust{1} = diff_VMT(clustIdxVMT==1,:);
 diff_VMT_clust{2} = diff_VMT(clustIdxVMT==2,:);
 diff_HPC_clust{1} = diff_HPC(clustIdxHPC==1,:);
 diff_HPC_clust{2} = diff_HPC(clustIdxHPC==2,:);
 
-figure('color','w'); 
-    subplot 311; hold on;
-        shadedErrorBar(freq,mean(diff_PFC_clust{1},1),stderr(diff_PFC_clust{1},1),'k',0);
-        shadedErrorBar(freq,mean(diff_PFC_clust{2},1),stderr(diff_PFC_clust{2},1),'m',0);
-        axis tight;
-        ylim([-0.5 0.5])  
-        ylimits = ylim;
-        
-           % ttest for cluster 1
-            p = []; statPF1 = [];
-            for i = 1:size(diff_PFC_clust{1},2)
-                [h,p(i),ci,stat]=ttest(diff_PFC_clust{1}(:,i));
-                statPF1(i,:)=stat.tstat;
-            end 
-            [h, crit_p, adj_ci_cvrg, padj]=fdr_bh(p);
-            pLine = padj;
-            pLine(pLine>0.05)=NaN;
-            pLine(pLine<0.05)=ylimits(2);
-            line(freq,pLine,'color','k','LineWidth',2) 
-            tableDataPFC_clust1 = []; frequency = freq'; pval = p'; padjust = padj';
-            tableDataPFC_clust1 = table(frequency,statPF1,pval,padjust);
-            
-            % ttest for cluster 2
-            p = []; statPF2 = [];
-            for i = 1:size(diff_PFC_clust{1},2)
-                [h,p(i),ci,stat]=ttest(diff_PFC_clust{2}(:,i));
-                statPF2(i,:)=stat.tstat;
-            end 
-            [h, crit_p, adj_ci_cvrg, padj]=fdr_bh(p);
-            pLine = padj;
-            pLine(pLine>0.05)=NaN;
-            pLine(pLine<0.05)=ylimits(2);
-            line(freq,pLine,'color','m','LineWidth',2) 
-            tableDataPFC_clust2 = []; frequency = freq'; pval = p'; padjust = padj';
-            tableDataPFC_clust2 = table(frequency,statPF2,pval,padjust);
-            
-    subplot 312; hold on;
+figure('color','w');        
+    subplot 211; hold on;
         shadedErrorBar(freq,mean(diff_VMT_clust{1},1),stderr(diff_VMT_clust{1},1),'k',0);
         shadedErrorBar(freq,mean(diff_VMT_clust{2},1),stderr(diff_VMT_clust{2},1),'m',0);
         axis tight;
@@ -3215,7 +3684,7 @@ figure('color','w');
             tableDataVMT_clust2 = []; frequency = freq'; pval = p'; padjust = padj';
             tableDataVMT_clust2 = table(frequency,statVM2,pval,padjust);
         
-    subplot 313; hold on;
+    subplot 212; hold on;
         shadedErrorBar(freq,mean(diff_HPC_clust{1},1),stderr(diff_HPC_clust{1},1),'k',0);
         shadedErrorBar(freq,mean(diff_HPC_clust{2},1),stderr(diff_HPC_clust{2},1),'m',0);
         axis tight;
@@ -3250,6 +3719,45 @@ figure('color','w');
             tableDataHPC_clust2 = []; frequency = freq'; pval = p'; padjust = padj';
             tableDataHPC_clust2 = table(frequency,statHC2,pval,padjust);
 
+% separate mrl data
+diffMrlVMT = (bsMrl_vmtH-bsMrl_vmtL)./(bsMrl_vmtH+bsMrl_vmtL);
+diffMrlHPC = (bsMrl_hpcH-bsMrl_hpcL)./(bsMrl_hpcH+bsMrl_hpcL);
+
+diffMRL_VMT_clust{1} = diffMrlVMT(clustIdxVMT==1);
+diffMRL_VMT_clust{2} = diffMrlVMT(clustIdxVMT==2);
+diffMRL_HPC_clust{1} = diffMrlHPC(clustIdxHPC==1);
+diffMRL_HPC_clust{2} = diffMrlHPC(clustIdxHPC==2);
+
+figure('color','w'); 
+subplot 211; hold on;
+    multiBarPlot(diffMRL_VMT_clust,[{'Clust1'} {'Clust2'}],'BS MRL')
+subplot 212; hold on;
+    multiBarPlot(diffMRL_HPC_clust,[{'Clust1'} {'Clust2'}],'BS MRL')
+
+%% plotting entrainment and spike field coherence
+
+load('data_coh_entrainment');
+
+% plot an example unit with LFP
+sessi    = 12; % has unit 22
+temphigh = horzcat(datahigh{sessi}{:});
+templow  = horzcat(datalow{sessi}{:});
+
+% get unique timestamps
+[~,idx] = unique(temphigh(4,:)); % only keep unique timestamps
+temphigh = temphigh(:,idx); % index out your dataset
+[~,idx] = unique(templow(4,:)); % only keep unique timestamps
+templow = templow(:,idx); % index out your dataset
+
+figure('color','w'); 
+disp('Note that these data are not filtered like described in the paper')
+disp('To see those data, you would have to hack the code above')
+    %plot(C); axis tight;
+    lfpIdx = [1:3]; unitIdx = [5]; srate = 2000;
+    % the coherence analysis above worked through 1.25s windows with 0.25s
+    % overlap, therefore account for missing the last
+    lfpRaster(temphigh(:,181082:181082+2000),lfpIdx,unitIdx,srate)
+    
 %% How is PFC modulated by VMT stim?
 
 % -- 21-45 -- %
@@ -3502,6 +4010,22 @@ shadedErrorBar(f,SrlM{shank,electrode},SrlE{shank,electrode},'r',0);
 ylabel('Log Transformed Power')
 xlabel('Frequency (Hz)')
 
+% reviewer suggested a theta:theta ratio between high and low rather than
+% the super subplot figure
+for rowi = 1:size(SblM,1)
+    for coli = 1:size(SblM,2)
+        try
+            ratiod(rowi,coli)=mean(SblM{rowi,coli}(f>6 & f<9),2)./mean(SrlM{rowi,coli}(f>6 & f<9),2);
+        catch
+            ratiod(rowi,coli) = NaN;
+        end
+    end
+end
+figure('color','w');
+heatmap(ratiod)
+savefig('fig_thetaRatio_onVoff_pfcProbe')
+
+
 %{
 % get avg over electrodes
 sbe = cellcat(Sbl,'vertcat','col');
@@ -3586,7 +4110,7 @@ p=p.*length(p);
 %% How is PFC-HPC interactions modulated by VMT stim?
 % -- 21-43 and 21-42 -- %
 clear;
-ratID='rat2142';
+ratID='rat2143';
 if contains(ratID,'42')
     load('data_2142_stim8Hz');
 elseif contains(ratID,'43')
@@ -3690,7 +4214,7 @@ for i = 1:size(hpcRon,2)
 end  
 
 % set to 1 if 21-42
-kmeanit = 1;
+kmeanit = 0;
 rng('default');
 if kmeanit == 1
     if contains(ratID,'42')
