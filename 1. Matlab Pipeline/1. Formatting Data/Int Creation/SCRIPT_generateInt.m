@@ -132,13 +132,17 @@ for i = 2:numSamples-1
     % if the rat is not in the cp, is not in the stem, is not in the goal
     % fields, is not in the startbox, but his last position was in the
     % choice point
-    if in_stem(i) == 0 && in_cp(i) == 0 && in_lr(i) == 0 && in_rr(i) == 0 && ...
-            in_sb(i) == 0 && contains(whereWasRat,'cp')
-        % store timestamp
-        goalArm_entry = [goalArm_entry t(i)];
-        % tracker
-        whereWasRat = 'goalArm';
-    end  
+    try
+        if in_stem(i) == 0 && in_cp(i) == 0 && in_lr(i) == 0 && in_rr(i) == 0 && ...
+                in_sb(i) == 0 && contains(whereWasRat,'cp')
+            % store timestamp
+            goalArm_entry = [goalArm_entry t(i)];
+            % tracker
+            whereWasRat = 'goalArm';
+        end
+    catch
+        continue %if tracking hasn't caught the rat in the sb at the beginning of the session yet, then move on to next sample
+    end
 
     % if the rat is in the left reward field or on it, but didn't used to
     % be in the field nor on it, but his next coordinate is in it
