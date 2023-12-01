@@ -37,19 +37,19 @@ if contains(helpAns,'y')
     disp('Have fun!')
 end
 
-%% CHANGE ME!!!!
+%% directory assignment
 
-% here you must change these to match the destination of your data
-clear; clc;
+% if you catch an error here, please contact me.
 
 % create a directory:
 sourceData = input("Enter the directory with your data: ",'s');
-sourceD
+sourceCode = getCurrentPath; % if you get an error here, you must download the pipeline
+place2store = sourceData; % output path
 disp('If running section-by-section, hit ctrl+c. Otherwise, press any key to continue...')
 pause();
 
 %% Initial loading
-cd(horzcat(sourceRoot,sourceFolder,sourceData));
+cd(sourceData)
 load('data_ratNames')
 load('data_realTimeLFPsignals'); % generated from SCRIPT_power_realTimeData_FINAL or SCRIPT_grangerPrediction_realTimeData_4pub
 disp('These data are the signals used to trigger trials in real time')
@@ -748,7 +748,8 @@ ylim([8 14]);
 stat_test = 'ttest'; parametric = 'y'; numCorrections = 2;
 readStats(timeHigh,timeLow,parametric,stat_test,'Time In Delay (high v low)',numCorrections);
 
-% fig 2a
+% -- extended Fig 4 on delay x choice outcome behavior -- %
+
 % this variable shows delay and choice accuracy (0 = correct, 1 = error)
 % for all trials per rat
 load('data_delayXaccuracy')
@@ -758,6 +759,48 @@ xlim([0 7])
 box off
 ylabel('Choice Accuracy')
 xlabel('Delay Duration Bin - check looper variable')
+
+% reviewer mentioned to do more than anova
+load('data_delayXaccuracy_ratTrials_4kmeans')
+
+% use kmeans to separate high and low
+data4k = vertcat(delayXaccuracy_rat{:});
+
+% perform k-means clustering to split data into two clusters by the delay
+% length (first column)
+[k,c_oldformat] = kmeans(data4k(:,1),2);
+c(1)=min(c_oldformat); c(2)=max(c_oldformat);
+
+% using centroids to determine thresholds
+shortDelay = []; longDelay = [];
+for i = 1:length(delayXaccuracy_rat)
+    idxShort = [];
+    idxShort = find(delayXaccuracy_rat{i}(:,1) >= 5 & delayXaccuracy_rat{i}(:,1) <= c(1));
+    shortDelay{i} = delayXaccuracy_rat{i}(idxShort,2);
+    
+    idxLong = [];
+    idxLong = find(delayXaccuracy_rat{i}(:,1) >= c(2) & delayXaccuracy_rat{i}(:,1) <= 30);
+    longDelay{i} = delayXaccuracy_rat{i}(idxLong,2);
+end
+
+shortDelayAvg = cellfun(@nanmean,shortDelay);
+longDelayAvg  = cellfun(@nanmean,longDelay);
+shortDelayAvg = (1-shortDelayAvg)*100;
+longDelayAvg = (1-longDelayAvg)*100;
+
+multiBarPlot(horzcat(shortDelayAvg',longDelayAvg')./100,[{'Short Delays'} {'Long Delays'}],'Choice Accuracy (%)');
+[h,p,ci,stat]=ttest(shortDelayAvg,longDelayAvg);
+ylim([.6 .8])
+
+% correlation
+ratAcc2 = ratAcc(:);
+varx = [];
+for i = 1:length(looper)-1
+    varx = vertcat(varx,repmat(mean([looper(i);looper(i+1)]),[8 1]));
+end
+figure('color','w')
+scatter(varx,ratAcc2)
+lslin
 
 %% More extended figs
 disp('Generating rat x coherence plots...')
@@ -1052,7 +1095,7 @@ end
 %% Analysis of existing datasets
 % raw processing can be observed in SCRIPT_analysis_v4
 clearvars -except dataSpkLFP sourceRoot sourceFolder sourceData sourceCode sourceRawCode
-cd(horzcat(sourceRoot,sourceFolder,sourceData));
+cd(sourceData);
 disp('These analyses were performed on existing datasets from the lab')
 disp('The general focus is on PFC-Re-HPC interaction and PFC SFC')
 disp('loading data - be prepared for a potentially long wait')
@@ -1169,11 +1212,13 @@ xlabel('Rat ID')
 disp('Please note that the following procedure will load ~5-6GB onto RAM. ')
 disp('We recommend at least 16GB RAM to proceed. You will need this variable to reproduce key figures below')
 disp('Press any key to continue');
-pause()
+pause();
+clear dataSpkLFP
+cd(sourceData);
 create_dataSpkLFP = 1; % set to 0 if you have already created this variable
 if create_dataSpkLFP == 1
     disp('Set "create_dataSpkLFP = 0" if you already have "data_SpkLFP_cohData_v2.mat"')
-    dataSpkLFP = struct();
+    %dataSpkLFP = struct();
     for i = 1:6
         data = []; load_var = [];
         load_var = ['dataSpkLFP_rat',num2str(i)];
@@ -2598,14 +2643,15 @@ readStats(data2plot(:,1),data2plot(:,2),parametric,stat_test,'PF2HC v HC2PF',num
 disp('Please note that the following procedure will load ~2-3GB onto RAM. ')
 disp('We recommend at least 16GB RAM to proceed. You will need this variable to reproduce key figures below')
 disp('Press any key to continue');
-pause()
+pause();
+clear dataSpkLFP
+cd(sourceData);
 create_dataSpkLFP = 1; % set to 0 if you have already created this variable
 if create_dataSpkLFP == 1
     disp('Set "create_dataSpkLFP = 0" if you already have "data_SpkLFP_cohData_v2.mat"')
-    dataSpkLFP = struct();
     for i = 1:3
         data = []; load_var = [];
-        load_var = ['dataSpkLFP_rat',num2str(i)];
+        load_var = ['dataSpkLFP_entrainment_rat',num2str(i)];
         data = load(load_var);
         dataSpkLFP.(['rat',num2str(i)]) = data.(['dataSpkLFP_rat',num2str(i)]);
     end

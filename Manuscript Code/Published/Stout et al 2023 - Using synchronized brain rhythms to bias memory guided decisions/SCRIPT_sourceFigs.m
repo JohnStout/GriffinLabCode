@@ -748,7 +748,8 @@ ylim([8 14]);
 stat_test = 'ttest'; parametric = 'y'; numCorrections = 2;
 readStats(timeHigh,timeLow,parametric,stat_test,'Time In Delay (high v low)',numCorrections);
 
-% fig 2a
+% -- extended Fig 4 on delay x choice outcome behavior -- %
+
 % this variable shows delay and choice accuracy (0 = correct, 1 = error)
 % for all trials per rat
 load('data_delayXaccuracy')
@@ -758,6 +759,57 @@ xlim([0 7])
 box off
 ylabel('Choice Accuracy')
 xlabel('Delay Duration Bin - check looper variable')
+
+% reviewer mentioned to do more than anova
+load('data_delayXaccuracy_ratTrials_4kmeans')
+
+% use kmeans to separate high and low
+data4k = vertcat(delayXaccuracy_rat{:});
+
+% perform k-means clustering to split data into two clusters by the delay
+% length (first column)
+[k,c_oldformat] = kmeans(data4k(:,1),2);
+c(1)=min(c_oldformat); c(2)=max(c_oldformat);
+
+% using centroids to determine thresholds
+shortDelay = []; longDelay = [];
+for i = 1:length(delayXaccuracy_rat)
+    idxShort = [];
+    idxShort = find(delayXaccuracy_rat{i}(:,1) >= 5 & delayXaccuracy_rat{i}(:,1) <= c(1));
+    shortDelay{i} = delayXaccuracy_rat{i}(idxShort,2);
+    
+    idxLong = [];
+    idxLong = find(delayXaccuracy_rat{i}(:,1) >= c(2) & delayXaccuracy_rat{i}(:,1) <= 30);
+    longDelay{i} = delayXaccuracy_rat{i}(idxLong,2);
+end
+
+shortDelayAvg = cellfun(@nanmean,shortDelay);
+longDelayAvg  = cellfun(@nanmean,longDelay);
+shortDelayAvg = (1-shortDelayAvg)*100;
+longDelayAvg = (1-longDelayAvg)*100;
+
+multiBarPlot(horzcat(shortDelayAvg',longDelayAvg')./100,[{'Short Delays'} {'Long Delays'}],'Choice Accuracy (%)');
+[h,p,ci,stat]=ttest(shortDelayAvg,longDelayAvg);
+ylim([.6 .8])
+
+% correlation
+ratAcc2 = ratAcc(:);
+varx = [];
+for i = 1:length(looper)-1
+    varx = vertcat(varx,repmat(mean([looper(i);looper(i+1)]),[8 1]));
+end
+colors = [[1 0 0];	[0 0 1]; [1 0 1]; [0 0 0];...
+    [.6 .6 .6]; [0.4660 0.6740 0.1880]; [0.8500 0.3250 0.0980]; [0.3010 0.7450 0.9330] ]; % color coded by subject
+colors_plot = repmat(colors,[6 1]);
+
+% super confusing plot when plotting all subjects as color
+figure('color','w')
+scatter(varx,ratAcc2,'MarkerEdgeColor','k','MarkerFaceColor',[.6 .6 .6])
+%scatter(varx,ratAcc2,64,colors_plot,'filled')
+l=lsline;
+l.Color='r';
+[r,p]=corrcoef(varx,ratAcc2)
+axis tight;
 
 %% More extended figs
 disp('Generating rat x coherence plots...')
