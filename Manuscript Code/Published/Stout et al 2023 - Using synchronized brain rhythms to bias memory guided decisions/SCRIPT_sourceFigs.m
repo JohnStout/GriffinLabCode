@@ -1501,6 +1501,8 @@ for rowi = 1:size(thetaC,1)
                 
                 end
             end
+            prawHigh{rowi,coli} = phigh;
+            prawLow{rowi,coli} = plow;
             phighMat{rowi}(coli,:) = cellfun(@nanmean,phigh);
             plowMat{rowi}(coli,:)  = cellfun(@nanmean,plow);
             
@@ -1525,6 +1527,8 @@ for rowi = 1:size(thetaC,1)
                 
                 end
             end
+            prawShufHigh{rowi,coli} = phigh;
+            prawShufLow{rowi,coli} = plow;            
             phighShuf{rowi}(coli,:) = cellfun(@nanmean,phigh);
             plowShuf{rowi}(coli,:)  = cellfun(@nanmean,plow);            
             
@@ -1803,6 +1807,37 @@ plot(smoothEx)
 [pxx,f] = periodogram(exData',[],[],srate)
 figure; plot(f,log10(pxx))
 xlim([0 0.04])
+
+% autocorrelation #1 (below I used the sample autocorrelation)
+rng('default')
+autocor = []; autocor_shuf = [];
+for rowi = 1:size(thetaC,1)
+    for coli = 1:size(thetaC,2)
+        for triali = 1:size(thetaC{rowi,coli},2)
+            if isempty(thetaC{rowi,coli})==0
+                % autocor
+                [autocor{rowi,coli}(triali,:),lags] = xcorr(thetaC{rowi,coli}(triali,:),20,'normalized');
+                % shuffled version
+                k = length(thetaC{rowi,coli}(triali,:));
+                randC = randsample(thetaC{rowi,coli}(triali,:),k,'false');
+                [autocor_shuf{rowi,coli}(triali,:),lags_shuf] = xcorr(randC,20,'normalized');
+            end
+        end
+    end
+    disp(['Finished with rat',num2str(rowi)])
+end
+autocor_ref = emptyCellErase(autocor(:));
+autocor_shuf_ref = emptyCellErase(autocor_shuf(:));
+autocor_ref_mean = cellfun(@nanmean,autocor_ref,'UniformOutput',false);
+autocor_shuf_ref_mean = cellfun(@nanmean,autocor_shuf_ref,'UniformOutput',false);
+
+% matrix version
+autocor_mat = vertcat(autocor_ref_mean{:});
+autocor_shuf_mat = vertcat(autocor_shuf_ref_mean{:});
+
+figure; hold on;
+plot(lags,mean(autocor_mat,1))
+plot(lags,mean(autocor_shuf_mat,1))
 
 % -- autocorrelation -- %
 % at the fifth lag, there is no sharing of data between lags
@@ -4162,9 +4197,9 @@ p=p.*length(p);
 %% How is PFC-HPC interactions modulated by VMT stim?
 % -- 21-43 and 21-42 -- %
 clear;
-ratID='rat2143';
+ratID='rat2142';
 if contains(ratID,'42')
-    load('data_2142_stim8Hz');
+    load('data_2142_stim7Hz'); % was stim8Hz
 elseif contains(ratID,'43')
     load('data_2143_stim7Hz')
 end
@@ -4266,7 +4301,7 @@ for i = 1:size(hpcRon,2)
 end  
 
 % set to 1 if 21-42
-kmeanit = 0;
+kmeanit = 1;
 rng('default');
 if kmeanit == 1
     if contains(ratID,'42')
