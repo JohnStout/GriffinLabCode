@@ -10,7 +10,7 @@ clear; clc;
 try
     load('main_directory')
 catch   
-    main_directory = '/Users/js0403/GriffinLabCode/1. Matlab Pipeline';
+    main_directory = '/Users/haileyrosenblum/Documents/GitHub/GriffinLabCode/1. Matlab Pipeline';
 end
 
 % interface with user to redefine main_directory 
@@ -41,11 +41,7 @@ cd(add_directory)
 folder_names = dir;
 
 % adding analysis paths
-if isunix
-    number = 4; % Code to run on Linux or MacOS platform
-elseif ispc
-    number = 3; % Code to run on Windows platform
-end
+number=3;
 for nn = number:size(folder_names,1)
     
     % define a naming variable
