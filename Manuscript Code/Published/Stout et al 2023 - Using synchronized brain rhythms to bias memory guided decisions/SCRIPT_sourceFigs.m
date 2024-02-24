@@ -748,7 +748,8 @@ ylim([8 14]);
 stat_test = 'ttest'; parametric = 'y'; numCorrections = 2;
 readStats(timeHigh,timeLow,parametric,stat_test,'Time In Delay (high v low)',numCorrections);
 
-% fig 2a
+% -- extended Fig 4 on delay x choice outcome behavior -- %
+
 % this variable shows delay and choice accuracy (0 = correct, 1 = error)
 % for all trials per rat
 load('data_delayXaccuracy')
@@ -758,6 +759,57 @@ xlim([0 7])
 box off
 ylabel('Choice Accuracy')
 xlabel('Delay Duration Bin - check looper variable')
+
+% reviewer mentioned to do more than anova
+load('data_delayXaccuracy_ratTrials_4kmeans')
+
+% use kmeans to separate high and low
+data4k = vertcat(delayXaccuracy_rat{:});
+
+% perform k-means clustering to split data into two clusters by the delay
+% length (first column)
+[k,c_oldformat] = kmeans(data4k(:,1),2);
+c(1)=min(c_oldformat); c(2)=max(c_oldformat);
+
+% using centroids to determine thresholds
+shortDelay = []; longDelay = [];
+for i = 1:length(delayXaccuracy_rat)
+    idxShort = [];
+    idxShort = find(delayXaccuracy_rat{i}(:,1) >= 5 & delayXaccuracy_rat{i}(:,1) <= c(1));
+    shortDelay{i} = delayXaccuracy_rat{i}(idxShort,2);
+    
+    idxLong = [];
+    idxLong = find(delayXaccuracy_rat{i}(:,1) >= c(2) & delayXaccuracy_rat{i}(:,1) <= 30);
+    longDelay{i} = delayXaccuracy_rat{i}(idxLong,2);
+end
+
+shortDelayAvg = cellfun(@nanmean,shortDelay);
+longDelayAvg  = cellfun(@nanmean,longDelay);
+shortDelayAvg = (1-shortDelayAvg)*100;
+longDelayAvg = (1-longDelayAvg)*100;
+
+multiBarPlot(horzcat(shortDelayAvg',longDelayAvg')./100,[{'Short Delays'} {'Long Delays'}],'Choice Accuracy (%)');
+[h,p,ci,stat]=ttest(shortDelayAvg,longDelayAvg);
+ylim([.6 .8])
+
+% correlation
+ratAcc2 = ratAcc(:);
+varx = [];
+for i = 1:length(looper)-1
+    varx = vertcat(varx,repmat(mean([looper(i);looper(i+1)]),[8 1]));
+end
+colors = [[1 0 0];	[0 0 1]; [1 0 1]; [0 0 0];...
+    [.6 .6 .6]; [0.4660 0.6740 0.1880]; [0.8500 0.3250 0.0980]; [0.3010 0.7450 0.9330] ]; % color coded by subject
+colors_plot = repmat(colors,[6 1]);
+
+% super confusing plot when plotting all subjects as color
+figure('color','w')
+scatter(varx,ratAcc2,'MarkerEdgeColor','k','MarkerFaceColor',[.6 .6 .6])
+%scatter(varx,ratAcc2,64,colors_plot,'filled')
+l=lsline;
+l.Color='r';
+[r,p]=corrcoef(varx,ratAcc2)
+axis tight;
 
 %% More extended figs
 disp('Generating rat x coherence plots...')
@@ -805,6 +857,140 @@ for i = 1:length(sessN)
     ylim([0 22]);
     title(rats{i})
 end
+
+%% Extended fig on learning to use coherence
+load('data_forcedRuns_BMI');
+
+% on a session by session basis, are rats more likely to open the door with
+% their brains as time goes on?
+% correlation coefficient for each session
+rat2132_full(rat2132_full==0)=NaN;
+rat2135_full(rat2135_full==0)=NaN;
+rat2136_full(rat2136_full==0)=NaN;
+r_2132=[]; r_2135=[]; r_2136=[];
+for i = 1:size(rat2132_full,2)
+    trials = []; trials = find(~isnan(rat2132_full(:,i)));
+    temp_data = []; temp_data = rat2132_full(trials,i);
+    r = corrcoef(trials,temp_data);
+    r_2132(i)=r(1,2);
+end
+for i = 1:size(rat2135_full,2)
+    trials = []; trials = find(~isnan(rat2135_full(:,i)));
+    temp_data = []; temp_data = rat2135_full(trials,i);
+    r = corrcoef(trials,temp_data);
+    r_2135(i)=r(1,2);
+end
+for i = 1:size(rat2136_full,2)
+    trials = []; trials = find(~isnan(rat2136_full(:,i)));
+    temp_data = []; temp_data = rat2136_full(trials,i);
+    r = corrcoef(trials,temp_data);
+    r_2136(i)=r(1,2);
+end
+sessions = horzcat(r_2132,r_2135,r_2136);
+[h,p]=ttest(sessions,0);
+
+% plot results
+multiBarPlot(sessions',[],'Avg. Pearson Correlation','n')
+ylim([-.12, 0.05])
+
+figure('color','w')
+histogram(sessions,10,'FaceColor',[.6 .6 .6], 'EdgeColor','k');
+box off
+ylimits=ylim;
+line([0 0],[ylimits(1) ylimits(2)],'color','r','LineWidth',2)
+ylabel('# Sessions')
+xlabel('Pearsons Correlation')
+
+figure('color','w')
+b = bar(sessions)
+b.FaceColor = 'flat';
+b.CData(1:length(r_2132),:) = repmat([.5 0 .5],[length(r_2132) 1]);
+b.CData(length(r_2132)+1:length(r_2132)+length(r_2135),:) = repmat([.6 .6 .6],[length(r_2135) 1]);
+b.CData(length(sessions)-length(r_2136)+1:length(sessions),:) = repmat([0 0 0],[length(r_2136) 1]);
+
+
+% mean and normalized to plot across animals
+rat2132_mean = mean(rat2132_full,2);
+rat2135_mean = mean(rat2135_full,2);
+rat2136_mean = mean(rat2136_full,2);
+
+% remove nan
+rat2132_mean(isnan(rat2132_mean))=[];
+rat2135_mean(isnan(rat2135_mean))=[];
+rat2136_mean(isnan(rat2136_mean))=[];
+
+% outlier detect
+rat2132_mean(isoutlier(rat2132_mean))=[];
+rat2135_mean(isoutlier(rat2135_mean))=[];
+rat2136_mean(isoutlier(rat2136_mean))=[];
+
+% normalize
+rat2132_norm = normalize(rat2132_mean,'range');
+rat2135_norm = normalize(rat2135_mean,'range');
+rat2136_norm = normalize(rat2136_mean,'range');
+
+figure('color','w')
+    subplot(1,3,1); 
+    scatter(1:length(rat2132_mean),rat2132_mean,'MarkerFaceColor',[.6 .6 .6],'MarkerEdgeColor','k');
+    l1=lsline
+    l1.Color='r'
+    [r_2132,p_2132]=corrcoef(1:length(rat2132_mean),rat2132_mean);
+    title(['21-32'])
+    ylabel('Session avg. time-to-trial-onset (sec)')
+    
+    subplot(1,3,2);
+    scatter(1:length(rat2135_mean),rat2135_mean,'MarkerFaceColor',[.6 .6 .6],'MarkerEdgeColor','k');
+    l2=lsline
+    l2.Color='r'
+    [r_2135,p_2135]=corrcoef(1:length(rat2135_mean),rat2135_mean);
+    title(['21-35'])    
+    xlabel('Trial Number')
+    
+    subplot(1,3,3);
+    scatter(1:length(rat2136_mean),rat2136_mean,'MarkerFaceColor',[.6 .6 .6],'MarkerEdgeColor','k');
+    l3=lsline
+    l3.Color='r'
+    [r_2136,p_2136]=corrcoef(1:length(rat2136_mean),rat2136_mean);
+    title(['21-36'])    
+    
+% mean and normalized to plot across animals
+rat2132_mean = mean(normalize(rat2132_full,'range'),2);
+rat2135_mean = mean(normalize(rat2135_full,'range'),2);
+rat2136_mean = mean(normalize(rat2136_full,'range'),2);
+
+% remove nan
+rat2132_mean(isnan(rat2132_mean))=[];
+rat2135_mean(isnan(rat2135_mean))=[];
+rat2136_mean(isnan(rat2136_mean))=[];
+
+% outlier detect
+rat2132_mean(isoutlier(rat2132_mean))=[];
+rat2135_mean(isoutlier(rat2135_mean))=[];
+rat2136_mean(isoutlier(rat2136_mean))=[];   
+   
+figure('color','w')
+    subplot(1,3,1); 
+    scatter(1:length(rat2132_mean),rat2132_mean,'MarkerFaceColor',[.6 .6 .6],'MarkerEdgeColor','k');
+    l1=lsline
+    l1.Color='r'
+    [r_2132,p_2132]=corrcoef(1:length(rat2132_mean),rat2132_mean);
+    title(['21-32'])
+    ylabel('Session avg. time-to-trial-onset (sec)')
+    
+    subplot(1,3,2);
+    scatter(1:length(rat2135_mean),rat2135_mean,'MarkerFaceColor',[.6 .6 .6],'MarkerEdgeColor','k');
+    l2=lsline
+    l2.Color='r'
+    [r_2135,p_2135]=corrcoef(1:length(rat2135_mean),rat2135_mean);
+    title(['21-35'])    
+    xlabel('Trial Number')
+    
+    subplot(1,3,3);
+    scatter(1:length(rat2136_mean),rat2136_mean,'MarkerFaceColor',[.6 .6 .6],'MarkerEdgeColor','k');
+    l3=lsline
+    l3.Color='r'
+    [r_2136,p_2136]=corrcoef(1:length(rat2136_mean),rat2136_mean);
+    title(['21-36'])   
 
 %% Other figs related to threshold
 load('data_ratThetaCohDistributions');
@@ -1449,6 +1635,8 @@ for rowi = 1:size(thetaC,1)
                 
                 end
             end
+            prawHigh{rowi,coli} = phigh;
+            prawLow{rowi,coli} = plow;
             phighMat{rowi}(coli,:) = cellfun(@nanmean,phigh);
             plowMat{rowi}(coli,:)  = cellfun(@nanmean,plow);
             
@@ -1473,6 +1661,8 @@ for rowi = 1:size(thetaC,1)
                 
                 end
             end
+            prawShufHigh{rowi,coli} = phigh;
+            prawShufLow{rowi,coli} = plow;            
             phighShuf{rowi}(coli,:) = cellfun(@nanmean,phigh);
             plowShuf{rowi}(coli,:)  = cellfun(@nanmean,plow);            
             
@@ -1751,6 +1941,37 @@ plot(smoothEx)
 [pxx,f] = periodogram(exData',[],[],srate)
 figure; plot(f,log10(pxx))
 xlim([0 0.04])
+
+% autocorrelation #1 (below I used the sample autocorrelation)
+rng('default')
+autocor = []; autocor_shuf = [];
+for rowi = 1:size(thetaC,1)
+    for coli = 1:size(thetaC,2)
+        for triali = 1:size(thetaC{rowi,coli},2)
+            if isempty(thetaC{rowi,coli})==0
+                % autocor
+                [autocor{rowi,coli}(triali,:),lags] = xcorr(thetaC{rowi,coli}(triali,:),20,'normalized');
+                % shuffled version
+                k = length(thetaC{rowi,coli}(triali,:));
+                randC = randsample(thetaC{rowi,coli}(triali,:),k,'false');
+                [autocor_shuf{rowi,coli}(triali,:),lags_shuf] = xcorr(randC,20,'normalized');
+            end
+        end
+    end
+    disp(['Finished with rat',num2str(rowi)])
+end
+autocor_ref = emptyCellErase(autocor(:));
+autocor_shuf_ref = emptyCellErase(autocor_shuf(:));
+autocor_ref_mean = cellfun(@nanmean,autocor_ref,'UniformOutput',false);
+autocor_shuf_ref_mean = cellfun(@nanmean,autocor_shuf_ref,'UniformOutput',false);
+
+% matrix version
+autocor_mat = vertcat(autocor_ref_mean{:});
+autocor_shuf_mat = vertcat(autocor_shuf_ref_mean{:});
+
+figure; hold on;
+plot(lags,mean(autocor_mat,1))
+plot(lags,mean(autocor_shuf_mat,1))
 
 % -- autocorrelation -- %
 % at the fifth lag, there is no sharing of data between lags
@@ -4109,20 +4330,24 @@ p=p.*length(p);
 
 %% How is PFC-HPC interactions modulated by VMT stim?
 % -- 21-43 and 21-42 -- %
+% note that 7hz session from 21-42 had a rather low sample size, but the
+% curve looks super similar. As such, we looked at the 8hz session that had
+% 100 events.
+
+% below (next section), we combine the 7 and 8hz stim together and see the
+% same results.
 clear;
 ratID='rat2143';
 if contains(ratID,'42')
-    load('data_2142_stim8Hz');
+    load('data_2142_stim8Hz_timesCorrected'); % times corrected refers to correct TTL timestamps for laser
 elseif contains(ratID,'43')
-    load('data_2143_stim7Hz')
+    load('data_2143_stim7hz_timesCorrected')
 end
 
 params = getCustomParams;
 params.Fs = 2000; srate = 2000;
 params.tapers = [2 3];
 
-disp('Please note that there was considerable variable over trials.')
-disp('I looked across a bunch of trials to determine which window of time to use')
 i = 15; % i = 10 for 21-43; i = 15 for 21-42
 figure('color','w');
     xData = linspace(-2,2,size(pfcBon,1));
@@ -4143,19 +4368,58 @@ figure('color','w');
         plot(xData,mean(C,2));
         xlim([-0.5 2])
         box off
+        
+        
+    
+% event triggered
+hpcBonAvg = median(hpcBon,2);
+pfcBonAvg = median(pfcBon,2);
+hpcRonAvg = median(hpcRon,2);
+pfcRonAvg = median(pfcRon,2);
 
+hpcBonSt = stderr(hpcBon,2);
+pfcBonSt = stderr(pfcBon,2);
+hpcRonSt = stderr(hpcRon,2);
+pfcRonSt = stderr(pfcRon,2);
+
+xTime = linspace(-2,2,size(hpcRon,1));
+figure('color','w'); 
+subplot 211; hold on;
+    plot(xTime,pfcBonAvg,'b')
+    plot(xTime,pfcRonAvg,'r');
+    xlim([-1 1])    
+subplot 212; hold on;
+    plot(xTime,hpcBonAvg,'b')
+    plot(xTime,hpcRonAvg,'r');
+    xlim([-1 1])
+    
 plotTrials = 0;
 if plotTrials == 1
     for i = 1:size(hpcBon,2)
         figure('color','w')
-            subplot 211
+            subplot 311
             plot(hpcBon(:,i),'b'); hold on;
             plot(pfcBon(:,i),'r'); axis tight;
-            subplot 212;
+            subplot 312;
             hpc = skaggs_filter_var(hpcBon(:,i),4,12,2000);
             pfc = skaggs_filter_var(pfcBon(:,i),4,12,2000);
             plot(hpc,'b'); hold on; plot(pfc,'r');
             axis tight;
+
+            % theta:delta ratio between PFC theta and delta
+            hilbert_theta = hilbert(skaggs_filter_var(pfcBon(:,i),6,11,2000));    
+            hilbert_delta = hilbert(skaggs_filter_var(pfcBon(:,i),1,3,2000));
+            theta_env = abs(hilbert_theta);                 
+            delta_env = abs(hilbert_delta);
+
+            % Calculate a theta/delta ratio
+            theta_delta = theta_env./delta_env;   
+            subplot 313;
+            plot(theta_delta,'k'); ylim([0 6])
+            title(['theta:delta=',num2str(mean(theta_delta))])
+            
+            idxEx{i} = input('Remove?','s');
+            
         pause;
         close;
     end
@@ -4188,12 +4452,11 @@ figure('color','w');
 % return
 params.fpass = [0 20];
 params.trialave = 0;
-disp('Visual observation revealed that initially, Re stim screws up phase locking, but then it becomes highly consistent')
 % 5000-7000
 % multitapers
-timeAround = [2.5 3.5]; % 2.5 to 3.5 = 0.5 to 1.5s; 2.0 to 3.5 = entire
+timeAround = [2 3.5]; % 2.5 to 3.5 = 0.5 to 1.5s; 2.0 to 3.5 = entire
 %timeAround = [2 4];
-SpfB = []; ShcB = [];
+SpfB = []; ShcB = []; Cb = [];
 for i = 1:size(hpcBon,2)
     [SpfB(i,:),f] = mtspectrumc(pfcBon(timeAround(1)*srate:srate*timeAround(2),i),params);
     [ShcB(i,:),fpb] = mtspectrumc(hpcBon(timeAround(1)*srate:srate*timeAround(2),i),params);
@@ -4202,7 +4465,7 @@ for i = 1:size(hpcBon,2)
     SpfB(i,:) = log10(SpfB(i,:));
     ShcB(i,:) = log10(ShcB(i,:));
 end
-SpfR = []; ShcR = [];
+SpfR = []; ShcR = []; Cr = [];
 for i = 1:size(hpcRon,2)
     [SpfR(i,:),f] = mtspectrumc(pfcRon(timeAround(1)*srate:srate*timeAround(2),i),params);
     [ShcR(i,:),fpr] = mtspectrumc(hpcRon(timeAround(1)*srate:srate*timeAround(2),i),params);
@@ -4213,63 +4476,14 @@ for i = 1:size(hpcRon,2)
     ShcR(i,:) = log10(ShcR(i,:));    
 end  
 
-% set to 1 if 21-42
-kmeanit = 0;
-rng('default');
-if kmeanit == 1
-    if contains(ratID,'42')
-        disp('for this rat (minimal virus), sometimes stim produced pfc rhythms, sometimes it didnt. ')
-        disp('Since re stim should produce those rhythms, extract times when it actually worked')
-
-        % 21-42 - sometimes it worked but it didnt always work
-        fTheta = find(f>6 & f<9);
-
-        % power
-        pfThetaB = mean(SpfB(:,fTheta),2);
-        pfThetaR = mean(SpfR(:,fTheta),2);
-        [C,idx] = kmeans(pfThetaB,2);
-
-        % filter data
-        CbClust{1} = Cb(C==1,:);
-        CbClust{2} = Cb(C==2,:);
-
-        figure; 
-            subplot 211;
-                plot(f,mean(CbClust{1},1),'k'); hold on;
-                plot(f,mean(CbClust{2},1),'m');  
-                ylabel('Coherence');
-                xlabel('Frequency');
-                legend('Clust1','Clust2');
-            subplot 212;
-                k_pfB{1} = SpfB(C==1,:);
-                k_pfB{2} = SpfB(C==2,:);
-                plot(f,mean(k_pfB{1},1),'k'); hold on;
-                plot(f,mean(k_pfB{2},1),'m');                  
-                ylabel('Power');
-                xlabel('Frequency');
-                legend('Clust1','Clust2');            
-
-        if mean(pfThetaB(C==1)) > mean(pfThetaB(C==2))
-            Cb   = Cb(C==1,:);
-            SpfB = SpfB(C==1,:);
-            ShcB = ShcB(C==1,:);
-        else
-            Cb   = Cb(C==2,:);
-            SpfB = SpfB(C==2,:);
-            ShcB = ShcB(C==2,:);
-        end
-
-    end
-end
-
 thetaAn = [6 11];
 figure('color','w');
 subplot 311; hold on;
     fTheta = find(f>4 & f<12);
     shadedErrorBar(f(fTheta),mean(SpfB(:,fTheta),1),stderr(SpfB(:,fTheta),1),'b',0)
     shadedErrorBar(f(fTheta),mean(SpfR(:,fTheta),1),stderr(SpfR(:,fTheta),1),'r',0)
-    title('PFC')
-    ylabel('Log10 power')
+    %title('PFC')
+    %ylabel('Log10 power')
     xlimits = xlim;
     ylimits = ylim;    
     p = [];
@@ -4290,8 +4504,8 @@ subplot 311; hold on;
 subplot 312; hold on;
     shadedErrorBar(f(fTheta),mean(ShcB(:,fTheta),1),stderr(ShcB(:,fTheta),1),'b',0)
     shadedErrorBar(f(fTheta),mean(ShcR(:,fTheta),1),stderr(ShcR(:,fTheta),1),'r',0)
-    title('HPC')
-    ylabel('Log10 power')
+    %title('HPC')
+    %ylabel('Log10 power')
     xlimits = xlim;
     ylimits = ylim;    
     p = [];
@@ -4308,7 +4522,7 @@ subplot 312; hold on;
 subplot 313; hold on;
     shadedErrorBar(f(fTheta),mean(Cb(:,fTheta),1),stderr(Cb(:,fTheta),1),'b',0)
     shadedErrorBar(f(fTheta),mean(Cr(:,fTheta),1),stderr(Cr(:,fTheta),1),'r',0)
-    ylabel('Coherence')
+    %ylabel('Coherence')
     xlimits = xlim;
     ylimits = ylim;    
     p = [];
@@ -4322,4 +4536,8 @@ subplot 313; hold on;
     pLine(pLine>0.05)=NaN;
     pLine(pLine<0.05)=ylimits(2);
     line(f(fTheta),pLine,'color','m','LineWidth',2)
-    title([ratID])
+    %title([ratID])
+    fftheta = f(fTheta);
+    fTheta2 = fftheta(f(fTheta) > thetaAn(1) & f(fTheta)<thetaAn(2));
+    fTheta2(adj_p<0.05)
+    

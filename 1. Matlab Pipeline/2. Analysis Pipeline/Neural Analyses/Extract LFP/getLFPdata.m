@@ -114,6 +114,8 @@ else
         evEnds = length(EventStrings);
     end
     try
+        % col1 = starts, col2=ends
+        % row1 = start1, row2 = start2 etc...
         evEdges  = [TimeStamps(evStarts);TimeStamps(evEnds)]';
         correctedEdges = 0;
         %disp('Multiple stop/starts detected, ')
@@ -195,3 +197,8 @@ if exist('SampleFrequencies')
 else
     srate = getLFPsrate(lfp_timestamps,lfp_samples);
 end
+
+% there is a small amount of data collected after you stop recording bc
+% data come in packets
+%timeOff=(evEdges(2,2)-TimestampsKeep(end))/1e6;
+%samplesOff=((evEdges(2,2)-TimestampsKeep(end))/1e6)*srate;

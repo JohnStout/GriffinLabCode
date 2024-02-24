@@ -6,7 +6,7 @@
 
 #--------------------------------------------#
 # change dir
-setwd("X:/07. Manuscripts/In preparation/Harnessing neural synchrony")
+setwd("C:/Users/uggriffin/Documents/BACKUP - Stout 2023 - dissertation/figshare")
 
 # load dataset
 data2load = 'data_choiceXdelay_spreadSheet.csv'
@@ -29,3 +29,5 @@ anovaOUT = ezANOVA(
  )
 
 print(anovaOUT)
+
+
