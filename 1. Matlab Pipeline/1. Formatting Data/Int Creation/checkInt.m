@@ -17,7 +17,7 @@
 %
 % written by John Stout
 
-function [remStem2Choice, remReturn, remDelay, remDoubleTrial] = checkInt(Int,pos_x,pos_y,pos_t)
+function [remStem2Choice, remReturn, remDelay, remDoubleTrial, remBehavior] = checkInt(Int,pos_x,pos_y,pos_t)
 
 % number of trials
 numTrials = size(Int,1);
@@ -67,6 +67,9 @@ remStem2Choice = str2num(input('Enter trials with >10% tracking error in stem/ch
 remReturn = str2num(input('Enter trials with >10% tracking error in return: ','s'));
 remDelay = str2num(input('Enter trials with failed startbox entry: ','s'));
 remDoubleTrial = str2num(input('Enter "double trials" - trials that have two trajectories overlapping: ','s'));
+disp('If rat is unplugged before the choice remove the corresponding trial');
+disp('If rat is unplugged after the choice remove the following trial');
+remBehavior = str2num(input('Enter trials that should be removed due to disturbance in behavior room (unplug, sounds, etc): ','s'));
 
 %remData = logical(remData);
 

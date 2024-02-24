@@ -274,7 +274,7 @@ delayTime = NaN([size(Int_old,1) 1]);
 delayTime(2:end) = delayTemp;
 
 %% CHECK YOUR DATA!!!
-[remStem2Choice, remReturn, remDelay, remDoubleTrial] = checkInt(Int_old,x,y,t);
+[remStem2Choice, remReturn, remDelay, remDoubleTrial, remBehavior] = checkInt(Int_old,x,y,t);
 
 numtrials = size(Int_old,1);
 for i = 1:numtrials-1
@@ -298,6 +298,8 @@ trackingErrorStem = zeros([size(Int_old,1) 1]);
 trackingErrorStem(remStem2Choice)=1;
 trackingErrorReturn = zeros([size(Int_old,1) 1]);
 trackingErrorReturn(remReturn)=1;
+behaviorRemove = zeros([size(Int_old,1) 1]);
+behaviorRemove(remBehavior)=1;
 
 % if you try to remove the last trial (i.e. the tracker failed to capture
 % the rat entering the startbox on trial 37/37), then you will create a
@@ -319,6 +321,7 @@ trackingErrorStem = logical(trackingErrorStem);
 trackingErrorReturn = logical(trackingErrorReturn);
 trackingErrorSBentry = logical(trackingErrorSB);
 trackingDoubleTrial = logical(trackingDoubleTrial);
+behaviorRemove = logical(behaviorRemove);
 
 % find anomalies (non existing data)
 anomaly = zeros([size(Int,1), 1]);
@@ -333,9 +336,10 @@ failedTimeStamp = [];
 failedTimeStamp = logical(anomaly);
 
 % generate table
-IntTable = table(trajNumber,stemEntry,cpEntry,gaEntry,gzEntry,retEntry,sbEntry,trajectory,accuracy,trajBinary,accBinary,delayTime,trackingErrorStem,trackingErrorReturn,trackingErrorSBentry,failedTimeStamp,trackingDoubleTrial);
+IntTable = table(trajNumber,stemEntry,cpEntry,gaEntry,gzEntry,retEntry,sbEntry,trajectory,accuracy,trajBinary,accBinary,delayTime,trackingErrorStem,trackingErrorReturn,trackingErrorSBentry,failedTimeStamp,trackingDoubleTrial,behaviorRemove);
 
 % save data
+question=[];
 question = 'Are you satisfied with the Int file and ready to save? [Y/N] ';
 answer   = input(question,'s');
 
