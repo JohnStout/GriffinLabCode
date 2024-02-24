@@ -37,19 +37,19 @@ if contains(helpAns,'y')
     disp('Have fun!')
 end
 
-%% directory assignment
+%% CHANGE ME!!!!
 
-% if you catch an error here, please contact me.
+% here you must change these to match the destination of your data
+clear; clc;
 
 % create a directory:
 sourceData = input("Enter the directory with your data: ",'s');
-sourceCode = getCurrentPath; % if you get an error here, you must download the pipeline
-place2store = sourceData; % output path
+sourceD
 disp('If running section-by-section, hit ctrl+c. Otherwise, press any key to continue...')
 pause();
 
 %% Initial loading
-cd(sourceData)
+cd(horzcat(sourceRoot,sourceFolder,sourceData));
 load('data_ratNames')
 load('data_realTimeLFPsignals'); % generated from SCRIPT_power_realTimeData_FINAL or SCRIPT_grangerPrediction_realTimeData_4pub
 disp('These data are the signals used to trigger trials in real time')
@@ -1052,7 +1052,7 @@ end
 %% Analysis of existing datasets
 % raw processing can be observed in SCRIPT_analysis_v4
 clearvars -except dataSpkLFP sourceRoot sourceFolder sourceData sourceCode sourceRawCode
-cd(sourceData);
+cd(horzcat(sourceRoot,sourceFolder,sourceData));
 disp('These analyses were performed on existing datasets from the lab')
 disp('The general focus is on PFC-Re-HPC interaction and PFC SFC')
 disp('loading data - be prepared for a potentially long wait')
@@ -1169,13 +1169,11 @@ xlabel('Rat ID')
 disp('Please note that the following procedure will load ~5-6GB onto RAM. ')
 disp('We recommend at least 16GB RAM to proceed. You will need this variable to reproduce key figures below')
 disp('Press any key to continue');
-pause();
-clear dataSpkLFP
-cd(sourceData);
+pause()
 create_dataSpkLFP = 1; % set to 0 if you have already created this variable
 if create_dataSpkLFP == 1
     disp('Set "create_dataSpkLFP = 0" if you already have "data_SpkLFP_cohData_v2.mat"')
-    %dataSpkLFP = struct();
+    dataSpkLFP = struct();
     for i = 1:6
         data = []; load_var = [];
         load_var = ['dataSpkLFP_rat',num2str(i)];
@@ -2600,15 +2598,14 @@ readStats(data2plot(:,1),data2plot(:,2),parametric,stat_test,'PF2HC v HC2PF',num
 disp('Please note that the following procedure will load ~2-3GB onto RAM. ')
 disp('We recommend at least 16GB RAM to proceed. You will need this variable to reproduce key figures below')
 disp('Press any key to continue');
-pause();
-clear dataSpkLFP
-cd(sourceData);
+pause()
 create_dataSpkLFP = 1; % set to 0 if you have already created this variable
 if create_dataSpkLFP == 1
     disp('Set "create_dataSpkLFP = 0" if you already have "data_SpkLFP_cohData_v2.mat"')
+    dataSpkLFP = struct();
     for i = 1:3
         data = []; load_var = [];
-        load_var = ['dataSpkLFP_entrainment_rat',num2str(i)];
+        load_var = ['dataSpkLFP_rat',num2str(i)];
         data = load(load_var);
         dataSpkLFP.(['rat',num2str(i)]) = data.(['dataSpkLFP_rat',num2str(i)]);
     end
