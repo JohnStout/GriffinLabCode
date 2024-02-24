@@ -49,7 +49,7 @@ function [] = readStats(data1,data2,parametric,stat_test,data_title,numCorrectio
         % non-parametric versions
         if contains(stat_test,'ranksum')
             disp('Running ranksum test')
-            [p,h,z]=ranksum(data1,data2); 
+            [p,h,z]=ranksum(data1,data2,'method','approximate'); 
             z = z.zval;
         elseif contains(stat_test,'signrank')
             disp('Running signrank test for paired data')
