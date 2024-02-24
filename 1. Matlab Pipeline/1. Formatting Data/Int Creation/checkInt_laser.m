@@ -1,5 +1,12 @@
-%% check int for timestamp - position accuracy
-% this function was designed to check the users int file for accuracy
+%% check int for timestamp - position accuracy - optogenetics experiment 
+% This function was designed to check the users int file for accuracy and
+% mark trials to be exlcuded from analysis 
+%
+% Currently for DA task with optogenetic stimulation at maze startbox (during delay), stem, 
+% or return arm. 
+% This script will need to be edited if user wants excluded trials to be grouped 
+% by reason for exclusion (ex. exclude trial based on tracking at specific
+% maze location). 
 %
 % -- INPUTS -- %
 % Int: Int file in old formatting
@@ -14,7 +21,7 @@
 % etc.
 % laserID : laser type for each trial
 
-function [laserID, remTrial] = checkInt_Re(Int,pos_x,pos_y,pos_t,vt_name,location)
+function [laserID, remTrial] = checkInt_laser(Int,pos_x,pos_y,pos_t,vt_name,location)
 
 % number of trials
 numTrials = size(Int,1);
@@ -27,7 +34,6 @@ blueON=contains(EventStrings, 'BlueON');
 blueOFF=contains(EventStrings, 'BlueOFF');
 % redON= contains(EventStrings, '0002');
 % redOFF= contains(EventStrings, '0000');
-
 
 redON_ts = TimeStamps(redON);
 redOFF_ts= TimeStamps(redOFF);
@@ -53,8 +59,8 @@ end
 
 laserID=[];
 if contains(location,'delay')
-    trialCheck = 2; %will start plotting from trial 2 (enter sb trial 1-> enter sb trial 2...)
-    laserID{1}=0; %no stim before first trial for delay day
+    trialCheck = 2; %will start plotting from trial 2 (enter sb trial 1-> enter sb trial 2)
+    laserID{1}=0; %no stim before first trial for delay testing day
 elseif contains(location, [{'stem'},{'goal'}])
     trialCheck=1;
 end
