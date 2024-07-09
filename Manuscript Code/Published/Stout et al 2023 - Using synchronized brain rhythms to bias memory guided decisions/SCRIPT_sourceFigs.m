@@ -402,11 +402,11 @@ if generateModelOrder == 1
     % zeros aren't actually values generated from the code. They were
     % placeholders
     optimalOrders(optimalOrders==0)=[];
-    moAvg = round(median(optimalOrders)); % non-normal distribution, looked poisson like with some outliers
+    moMed = round(median(optimalOrders)); % non-normal distribution, looked poisson like with some outliers
     %figure; histogram(optimalOrders)
 else
     % manually entered based on the code above
-    moAvg = 7;
+    moMed = 7;
 end
 
 % GP
@@ -417,7 +417,7 @@ for i = 1:length(lfp_high)
     for ii = 1:length(lfp_high{i})
         signal1 = detrend(lfp_high{i}{ii}(1,:),3);
         signal2 = detrend(lfp_high{i}{ii}(2,:),3);           
-        [gcPFC2HPC_high{i}{ii}, gcHPC2PFC_high{i}{ii}, frequencies] = GCspectral(detrend(lfp_high{i}{ii}(1,:),3),detrend(lfp_high{i}{ii}(2,:),3), moAvg, srate);
+        [gcPFC2HPC_high{i}{ii}, gcHPC2PFC_high{i}{ii}, frequencies] = GCspectral(detrend(lfp_high{i}{ii}(1,:),3),detrend(lfp_high{i}{ii}(2,:),3), moMed, srate);
     end
     disp(['Finished with rat # ',num2str(i), ' high data'])
 end
@@ -426,7 +426,7 @@ for i = 1:length(lfp_low)
     for ii = 1:length(lfp_low{i})
         signal1 = detrend(lfp_low{i}{ii}(1,:),3);
         signal2 = detrend(lfp_low{i}{ii}(2,:),3);             
-        [gcPFC2HPC_low{i}{ii}, gcHPC2PFC_low{i}{ii}, frequencies] = GCspectral(detrend(lfp_low{i}{ii}(1,:),3),detrend(lfp_low{i}{ii}(2,:),3), moAvg, srate);
+        [gcPFC2HPC_low{i}{ii}, gcHPC2PFC_low{i}{ii}, frequencies] = GCspectral(detrend(lfp_low{i}{ii}(1,:),3),detrend(lfp_low{i}{ii}(2,:),3), moMed, srate);
     end
     disp(['Finished with rat # ',num2str(i), ' low data'])
 end
@@ -1836,13 +1836,11 @@ xlabel('lag')
 xlim([0 10])
 
 lag = 5;
-[z,p] = ztest(mean(acf_sess_shuff(:,5)),mean(acf_sess(:,5)),std(acf_sess(:,5)));
-
 for i = 1:10
     [h,p(i)] = ttest(acf_sess(:,i),mean(acf_sess_shuff(:,i)));
 end
-figure; plot(0:9,p.*5)
 
+% the 6th time point represents 1.25s offset and so correct for 6-9.
 figure('color','w'); hold on;
     shadedErrorBar(0:50,mean(acf_sess,1),stderr(acf_sess,1),'k',1);
     plot(0:50,mean(acf_sess_shuff,1),'r','LineWidth',1);
@@ -1851,11 +1849,15 @@ figure('color','w'); hold on;
     xlim([0 9])
 yyaxis right; 
     p(1:5)=NaN;
-    plot(0:9,p.*4)
+    plot(0:9,p.*5)
     xlimits = xlim;
     ylimits = ylim;
     line([xlimits(1) xlimits(2)],[0.05 0.05],'Color','r')
     ylabel('p-value')
+    yyaxis right
+    ylim([0 0.7])
+    yyaxis left
+    ylim([-0.02 1])
 
 %% prep signal data for analysis
 clear datahigh datalow dataex C t
