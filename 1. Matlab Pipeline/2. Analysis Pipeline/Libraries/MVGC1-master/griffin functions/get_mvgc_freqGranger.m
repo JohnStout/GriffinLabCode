@@ -16,7 +16,7 @@
 %
 % JS 11/8/22 from mvgc
 
-function [gp_cell,freqs] = get_mvgc_freqGranger(data,mvgc_params,modelOrder)
+function [gp_cell,freqs,gp_cell_thetaTime] = get_mvgc_freqGranger(data,mvgc_params,modelOrder)
 
 % -- now lets work towards granger -- %
 disp('Converting to double...')
@@ -73,6 +73,10 @@ ptoc;
 % Check for failed spectral GC calculation
 assert(~isbad(f,false),'spectral GC calculation failed');
 
+% time domain granger causality over set frequency
+%B = linspace(6,11,6);
+%F = smvgc_to_mvgc(f,B);
+
 % get data out in an automated way
 for rowi = 1:size(f,1)
     for coli = 1:size(f,2)
@@ -80,6 +84,14 @@ for rowi = 1:size(f,1)
     end
 end
 disp('In gp_cell, COLUMN IS ALWAYS YOUR PREDICTOR, row is always receiving. (col1,row1)=1->1 = NAN. (col1,row2)=1->2. (col2,row1)=2->1');
+
+% time domain
+gp_cell_thetaTime = [];
+for rowi = 1:size(f,1)
+    for coli = 1:size(f,2)
+        gp_cell_thetaTime{rowi,coli} = squeeze(F(rowi,coli,:));
+    end
+end
 %{
     % this code demonstrates that the output is in a covariance type
     matrix. Column is predictor, row is receiver.

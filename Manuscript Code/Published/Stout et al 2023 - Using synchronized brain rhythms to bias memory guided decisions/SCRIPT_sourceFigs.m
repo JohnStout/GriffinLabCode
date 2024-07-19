@@ -4109,14 +4109,20 @@ p=p.*length(p);
  
 %}
 
+
+%% viewing each dataset for Figure 6 Figure Supplement 1
+
 %% How is PFC-HPC interactions modulated by VMT stim?
+
+% some of the code below and comments are old and can be ignored.
+
 % -- 21-43 and 21-42 -- %
 clear;
 ratID='rat2143';
 if contains(ratID,'42')
-    load('data_2142_stim8Hz');
+    load('data_2142_stim8Hz_timesCorrected.mat');
 elseif contains(ratID,'43')
-    load('data_2143_stim7Hz')
+    load('data_2143_stim7hz_timesCorrected.mat')
 end
 
 params = getCustomParams;
@@ -4215,7 +4221,7 @@ for i = 1:size(hpcRon,2)
     ShcR(i,:) = log10(ShcR(i,:));    
 end  
 
-% set to 1 if 21-42
+% an option
 kmeanit = 0;
 rng('default');
 if kmeanit == 1
@@ -4325,3 +4331,183 @@ subplot 313; hold on;
     pLine(pLine<0.05)=ylimits(2);
     line(f(fTheta),pLine,'color','m','LineWidth',2)
     title([ratID])
+
+%% Fig 6 figure supplement 6
+% reviewer suggested including all sessions. The code below allows any
+% person to generate the figure supplement figures
+
+% time lock the data to 1-1.5s around stimulation (2000-3000 samples)
+
+% the matlab variables below are the data from Figure 6. The Figure
+% supplement data are also available here:
+
+% you can convert this data here, note that this only works on PC:
+% \1. Matlab Pipeline\1. Formatting Data\Nlx2Mat\convert_LFP.mat
+
+% https://doi.org/10.6084/m9.figshare.25325560.v3
+
+% load data
+load('Events');
+
+% get lfp
+[hpc,hpcts,srate,lfpEvents,lfpTimesEvents] = getLFPdata(datafolder,'HPC_b','Events');
+[pfc,pfcts] = getLFPdata(datafolder,'PFC_post','Events');
+
+% important paramaters - check stimTime in MATLAB data in current folder
+sessDur = ((hpcts(end)-hpcts(1))/1e6)/60; % in minutes
+srate = 2000; % sampling rate
+
+% time around stim to examine
+timeAround = [0 1.5]; 
+
+% params
+params = getCustomParams;
+params.Fs = srate;
+params.fpass = [0 100];
+params.tapers = [2 3];
+params.err = [2 0.5];
+movingwin = [1.25 .25];
+
+% get blue on events
+idxONb = find(contains(EventStrings,'BlueON'))-1;
+idxONr = find(contains(EventStrings,'RedON'))-1;
+
+% get timestamps corresponding to on events
+timeONb = TimeStamps(idxONb);
+timeONr = TimeStamps(idxONr);
+
+% get index of LFP around these events
+idxLFPonb = dsearchn(hpcts',timeONb');
+idxLFPonr = dsearchn(hpcts',timeONr');
+
+% get lfp around these events
+hpcBon = []; pfcBon = [];
+for bi = 1:length(idxLFPonb)
+    % make temporary variable for LFP index
+    idxTemp = [];
+    idxTemp = idxLFPonb(bi)-(srate*timeAround(1)):idxLFPonb(bi)+(srate*timeAround(2));
+    % get signal
+    hpcBon(:,bi) = detrend(hpc(idxTemp),3);
+    pfcBon(:,bi) = detrend(pfc(idxTemp),3);
+end
+    
+% get lfp around these events
+hpcRon = []; pfcRon = [];
+for ri = 1:length(idxLFPonr)
+    try
+        % make temporary variable for LFP index
+        idxTemp = [];
+        idxTemp = idxLFPonr(ri)-(srate*timeAround(1)):idxLFPonr(ri)+(srate*timeAround(2));
+        % get signal
+        hpcRon(:,ri) = detrend(hpc(idxTemp),3);
+        pfcRon(:,ri) = detrend(pfc(idxTemp),3);
+    catch
+    end
+end
+   
+% return
+params.fpass = [0 20];
+params.trialave = 0;
+SpfB = []; ShcB = []; Cb = []; AngleB = [];
+for i = 1:size(hpcBon,2)
+    [SpfB(i,:),f] = mtspectrumc(pfcBon(:,i),params);
+    [ShcB(i,:),fpb] = mtspectrumc(hpcBon(:,i),params);
+    [Cb(i,:),phib{i},S12b{i},S1,S2,f] = coherencyc(hpcBon(:,i),pfcBon(:,i),params);
+    %
+    SpfB(i,:) = log10(SpfB(i,:));
+    ShcB(i,:) = log10(ShcB(i,:));
+    AngleB(i,:) = angle(S12b{i});
+end
+SpfR = []; ShcR = []; Cr = []; AngleR = [];
+for i = 1:size(hpcRon,2)
+    [SpfR(i,:),f] = mtspectrumc(pfcRon(:,i),params);
+    [ShcR(i,:),fpr] = mtspectrumc(hpcRon(:,i),params);
+    [Cr(i,:),phir{i},S12r{i},S1,S2,f] = coherencyc(hpcRon(:,i),pfcRon(:,i),params);
+    
+    %
+    SpfR(i,:) = log10(SpfR(i,:));
+    ShcR(i,:) = log10(ShcR(i,:));  
+    AngleR(i,:) = angle(S12b{i});    
+end  
+
+thetaAn = [6 11];
+figure('color','w');
+subplot 311; hold on;
+    fTheta = find(f>4 & f<12);
+    shadedErrorBar(f(fTheta),mean(SpfB(:,fTheta),1),stderr(SpfB(:,fTheta),1),'b',0)
+    shadedErrorBar(f(fTheta),mean(SpfR(:,fTheta),1),stderr(SpfR(:,fTheta),1),'r',0)
+    %title('PFC')
+    %ylabel('Log10 power')
+    xlimits = xlim;
+    ylimits = ylim;    
+    p = [];
+    for i = 1:length(fTheta)
+        [h,p(i)]=ttest2(SpfB(:,fTheta(i)),SpfR(:,fTheta(i)))
+    end 
+    fT = f(fTheta);
+    fTrange = fT(fT > thetaAn(1) & fT < thetaAn(2));
+    pT = p(fT > thetaAn(1) & fT < thetaAn(2));
+    fxP = horzcat(fTrange',pT');
+    [h, crit_p, adj_ci_cvrg, adj_p]=fdr_bh(pT);
+    pLine = NaN([size(p)]);
+    pLine(fT > thetaAn(1) & fT < thetaAn(2))=adj_p;  
+    pLine(pLine>0.05)=NaN;
+    pLine(pLine<0.05)=ylimits(2);
+    line(f(fTheta),pLine,'color','m','LineWidth',2)
+       
+subplot 312; hold on;
+    shadedErrorBar(f(fTheta),mean(ShcB(:,fTheta),1),stderr(ShcB(:,fTheta),1),'b',0)
+    shadedErrorBar(f(fTheta),mean(ShcR(:,fTheta),1),stderr(ShcR(:,fTheta),1),'r',0)
+    %title('HPC')
+    %ylabel('Log10 power')
+    xlimits = xlim;
+    ylimits = ylim;    
+    p = [];
+    for i = 1:length(fTheta)
+        [h,p(i)]=ttest2(ShcB(:,fTheta(i)),ShcR(:,fTheta(i)))
+    end 
+    pT = p(f(fTheta) > thetaAn(1) & f(fTheta) < thetaAn(2));
+    [h, crit_p, adj_ci_cvrg, adj_p]=fdr_bh(pT);
+    pLine = NaN([size(p)]);
+    pLine(f(fTheta) > thetaAn(1) & f(fTheta)<thetaAn(2))=adj_p;  
+    pLine(pLine>0.05)=NaN;
+    pLine(pLine<0.05)=ylimits(2);
+    line(f(fTheta),pLine,'color','m','LineWidth',2)
+subplot 313; hold on;
+    shadedErrorBar(f(fTheta),mean(Cb(:,fTheta),1),stderr(Cb(:,fTheta),1),'b',0)
+    shadedErrorBar(f(fTheta),mean(Cr(:,fTheta),1),stderr(Cr(:,fTheta),1),'r',0)
+    %ylabel('Coherence')
+    xlimits = xlim;
+    ylimits = ylim;    
+    p = [];
+    for i = 1:length(fTheta)
+        [h,p(i)]=ttest2(Cb(:,fTheta(i)),Cr(:,fTheta(i)))
+    end 
+    pT = p(f(fTheta) > thetaAn(1) & f(fTheta) < thetaAn(2));
+    [h, crit_p, adj_ci_cvrg, adj_p]=fdr_bh(pT);
+    pLine = NaN([size(p)]);
+    pLine(f(fTheta) > thetaAn(1) & f(fTheta)<thetaAn(2))=adj_p;  
+    pLine(pLine>0.05)=NaN;
+    pLine(pLine<0.05)=ylimits(2);
+    line(f(fTheta),pLine,'color','m','LineWidth',2)
+    %title([ratID])
+    fftheta = f(fTheta);
+    fTheta2 = fftheta(f(fTheta) > thetaAn(1) & f(fTheta)<thetaAn(2));
+    fTheta2(adj_p<0.05)
+
+figure('color','w'); hold on;
+    shadedErrorBar(f(fTheta),mean(AngleB(:,fTheta),1),stderr(AngleB(:,fTheta),1),'b',0)
+    shadedErrorBar(f(fTheta),mean(AngleR(:,fTheta),1),stderr(AngleR(:,fTheta),1),'r',0)
+    xlimits = xlim;
+    ylimits = ylim;    
+    p = [];
+    for i = 1:length(fTheta)
+        [h,p(i)]=ttest2(AngleB(:,fTheta(i)),AngleR(:,fTheta(i)))
+    end 
+    pT = p(f(fTheta) > thetaAn(1) & f(fTheta) < thetaAn(2));
+    [h, crit_p, adj_ci_cvrg, adj_p]=fdr_bh(pT);
+    pLine = NaN([size(p)]);
+    pLine(f(fTheta) > thetaAn(1) & f(fTheta)<thetaAn(2))=adj_p;  
+    pLine(pLine>0.05)=NaN;
+    pLine(pLine<0.05)=ylimits(2);
+    line(f(fTheta),pLine,'color','m','LineWidth',2)
